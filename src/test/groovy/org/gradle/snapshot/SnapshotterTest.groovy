@@ -2,6 +2,7 @@ package org.gradle.snapshot
 
 import com.google.common.collect.ImmutableList
 import org.gradle.snapshot.configuration.ExpandZip
+import org.gradle.snapshot.configuration.Filter
 import org.gradle.snapshot.configuration.SnapshotterConfiguration
 import org.gradle.snapshot.hashing.FileHasher
 import org.junit.Rule
@@ -13,6 +14,7 @@ import java.util.stream.Collectors
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+import static java.util.stream.Collectors.toList
 import static org.gradle.snapshot.configuration.DefaultSnapshotterModifier.modifier
 import static org.gradle.snapshot.configuration.ZipFileMatcher.IS_ZIP_FILE
 
@@ -35,7 +37,7 @@ class SnapshotterTest extends Specification {
         )
 
         when:
-        List<FileSnapshot> result = snapshotter.snapshotFiles(inputFiles.stream()).collect(Collectors.toList())
+        List<FileSnapshot> result = snapshotter.snapshotFiles(inputFiles.stream()).collect(toList())
 
         then:
         result*.hash*.toString() == [
@@ -101,13 +103,77 @@ class SnapshotterTest extends Specification {
         zip(zipFile, zipContents)
 
         when:
-        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(Collectors.<FileSnapshot> toList())
+        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(Collectors.<FileSnapshot>toList())
 
         then:
         snapshots*.hash*.toString() == [
                 '60504d6d431f8d21a01d03df9875dc48',
                 'b89ea7bbde86a0163569055ff69a7fa6'
         ]
+    }
+
+    def "can ignore files"() {
+        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(
+                null,
+                modifier({ it -> it.path.contains('ignored')}, new Filter())))
+
+        def firstFile = temporaryFolder.newFile("my-name.txt")
+        firstFile.text = "I am snapshotted"
+        def ignoredFile = temporaryFolder.newFile("ignored.txt")
+        ignoredFile.text = "I am not snapshotted."
+
+        when:
+        List<FileSnapshot> result = snapshotter.snapshotFiles([firstFile, ignoredFile].stream()).collect(toList())
+
+        then:
+        result.size() == 1
+
+        def hashOfNotIgnoredFile = result.first().hash
+
+        when:
+        ignoredFile << "I am also ignored."
+        result = snapshotter.snapshotFiles([ignoredFile, firstFile].stream()).collect(toList())
+
+        then:
+        result.size() == 1
+        result.first().hash == hashOfNotIgnoredFile
+
+
+    }
+
+    def "can ignore files in zip"() {
+        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(
+                modifier(IS_ZIP_FILE, new ExpandZip()),
+                modifier({ it -> it.path.contains('ignored')}, new Filter())))
+
+        def zipContents = temporaryFolder.newFolder('zipContents')
+        def firstFileInZip = new File(zipContents, "firstFileInZip.txt")
+        firstFileInZip.createNewFile()
+        firstFileInZip.text = "Some text in zip"
+        def ignoredFile = new File(zipContents, "ignoredFile.txt")
+        ignoredFile.createNewFile()
+        ignoredFile.text = "Not snapshotted"
+        def zipFile = temporaryFolder.newFile("zipFile.zip")
+        zip(zipFile, zipContents)
+
+        when:
+        List<FileSnapshot> result = snapshotter.snapshotFiles([zipFile].stream()).collect(toList())
+
+        then:
+        result.size() == 1
+        def hashOfZip = result.first().hash
+
+        when:
+        ignoredFile << "I am also ignored."
+        zipFile.delete()
+        zip(zipFile, zipContents)
+        result = snapshotter.snapshotFiles([zipFile].stream()).collect(toList())
+
+        then:
+        result.size() == 1
+        result.first().hash == hashOfZip
+
+
     }
 
     private static void zip(File zipFile, File inputDir) {

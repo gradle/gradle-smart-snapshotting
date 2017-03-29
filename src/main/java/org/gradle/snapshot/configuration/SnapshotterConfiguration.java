@@ -22,7 +22,7 @@ public class SnapshotterConfiguration {
         return Optional.ofNullable(fileTreeOperation);
     }
 
-    public SnapshotterModifier<FileSnapshotOperation> getFileSnapshotOperation() {
-        return fileSnapshotOperation;
+    public Optional<SnapshotterModifier<FileSnapshotOperation>> getFileSnapshotOperation() {
+        return Optional.ofNullable(fileSnapshotOperation);
     }
 }
