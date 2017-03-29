@@ -1,13 +1,9 @@
 package org.gradle.snapshot;
 
-public class SnapshottableFile {
-    private String path;
+import java.io.InputStream;
 
-    public SnapshottableFile(String path) {
-        this.path = path;
-    }
-
-    public String getPath() {
-        return path;
-    }
+public interface SnapshottableFile {
+    InputStream open();
+    String getPath();
+    FileType getType();
 }

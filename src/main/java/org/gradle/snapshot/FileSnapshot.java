@@ -2,7 +2,7 @@ package org.gradle.snapshot;
 
 import com.google.common.hash.HashCode;
 
-public class FileSnapshot {
+public class FileSnapshot implements Comparable<FileSnapshot> {
     private String path;
     private HashCode hash;
 
@@ -17,5 +17,10 @@ public class FileSnapshot {
 
     public HashCode getHash() {
         return hash;
+    }
+
+    @Override
+    public int compareTo(FileSnapshot o) {
+        return path.compareTo(o.getPath());
     }
 }
