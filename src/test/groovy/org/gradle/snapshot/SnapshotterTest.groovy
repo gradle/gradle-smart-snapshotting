@@ -32,7 +32,7 @@ class SnapshotterTest extends Specification {
         )
 
         when:
-        List<FileSnapshot> result = snapshotter.snapshot(inputFiles.stream()).collect(Collectors.toList())
+        List<FileSnapshot> result = snapshotter.snapshotFiles(inputFiles.stream()).collect(Collectors.toList())
 
         then:
         result*.hash*.toString() == [
@@ -61,11 +61,48 @@ class SnapshotterTest extends Specification {
         zip(zipFile, zipContents)
 
         when:
-        List<FileSnapshot> snapshots = snapshotter.snapshot([zipFile, fileNotInZip].stream()).collect(Collectors.<FileSnapshot> toList())
+        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(Collectors.<FileSnapshot> toList())
 
         then:
         snapshots*.hash*.toString() == [
                 'adfb1f084e157fd1b1814912b44ca8ef',
+                'b89ea7bbde86a0163569055ff69a7fa6'
+        ]
+    }
+
+    def "can look into zip files in zip files"() {
+        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(new ExpandZip()))
+
+        def zipInZipContents = temporaryFolder.newFolder('zipInZipContents')
+        def firstFileInZip = new File(zipInZipContents, "firstFileInZip.txt")
+        firstFileInZip.createNewFile()
+        firstFileInZip.text = "Some text in zip"
+        def secondFileInZip = new File(zipInZipContents, "secondFileInZip.txt")
+        secondFileInZip.createNewFile()
+        secondFileInZip.text = "second file in zip"
+
+
+        def zipContents = temporaryFolder.newFolder('zipContents')
+        def firstFile = new File(zipContents, "firstFile.txt")
+        firstFile.createNewFile()
+        firstFile.text = "Some text"
+        def secondFile = new File(zipContents, "secondFile.txt")
+        secondFile.createNewFile()
+        secondFile.text = "second file"
+        zip(new File(zipContents, "zipInZip.zip"), zipInZipContents)
+
+        def fileNotInZip = temporaryFolder.newFile("unrelatedFile.txt")
+        fileNotInZip.text = "Contents of first file"
+
+        def zipFile = temporaryFolder.newFile("input.zip")
+        zip(zipFile, zipContents)
+
+        when:
+        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(Collectors.<FileSnapshot> toList())
+
+        then:
+        snapshots*.hash*.toString() == [
+                '60504d6d431f8d21a01d03df9875dc48',
                 'b89ea7bbde86a0163569055ff69a7fa6'
         ]
     }

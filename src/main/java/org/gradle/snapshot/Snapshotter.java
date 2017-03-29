@@ -17,18 +17,21 @@ public class Snapshotter {
 
     private SnapshotterConfiguration configuration;
 
-    public Stream<FileSnapshot> snapshot(Stream<File> fileTree) {
+    public Stream<FileSnapshot> snapshotFiles(Stream<File> fileTree) {
+        return snapshot(fileTree.map(PhysicalFile::new));
+    }
+
+    public Stream<FileSnapshot> snapshot(Stream<SnapshottableFile> fileTree) {
         return fileTree
                 .map(file -> configuration.getFileTreeOperation().flatMap(
                         fileTreeOperation -> {
                             if (!fileTreeOperation.applies(file)) {
                                 return Optional.empty();
                             }
-                            return Optional.of(fileTreeOperation.expand(file)
-                                    .map(this::snapshotFile)
+                            return Optional.of(snapshot(fileTreeOperation.expand(file))
                                     .collect(fileTreeOperation.collector(file)));
                         }
-                ).orElseGet(() -> snapshotFile(new PhysicalFile(file))));
+                ).orElseGet(() -> snapshotFile(file)));
     }
 
     private FileSnapshot snapshotFile(SnapshottableFile file) {

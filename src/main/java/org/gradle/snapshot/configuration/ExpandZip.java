@@ -7,9 +7,6 @@ import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.FileType;
 import org.gradle.snapshot.SnapshottableFile;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,31 +22,27 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class ExpandZip implements FileTreeOperation {
-    public boolean applies(File file) {
+    public boolean applies(SnapshottableFile file) {
         return file.getPath().endsWith(".zip");
     }
 
-    public Stream<SnapshottableFile> expand(File file) {
-        try {
-            ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(file));
+    public Stream<SnapshottableFile> expand(SnapshottableFile file) {
+        ZipInputStream zipInputStream = new ZipInputStream(file.open());
 
-            return StreamSupport.stream(
-                    Spliterators.spliteratorUnknownSize(new ZipIterator(zipInputStream), Spliterator.ORDERED),
-                    false
-            ).onClose(() -> {
-                try {
-                    zipInputStream.close();
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
-        } catch (FileNotFoundException e) {
-            throw new UncheckedIOException(e);
-        }
+        return StreamSupport.stream(
+                Spliterators.spliteratorUnknownSize(new ZipIterator(zipInputStream), Spliterator.ORDERED),
+                false
+        ).onClose(() -> {
+            try {
+                zipInputStream.close();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
     }
 
     @Override
-    public Collector<FileSnapshot, ?, FileSnapshot> collector(File file) {
+    public Collector<FileSnapshot, ?, FileSnapshot> collector(SnapshottableFile file) {
         return Collectors.collectingAndThen(Collectors.toList(), fileSnapshots -> {
                     Hasher hasher = Hashing.md5().newHasher();
                     ImmutableList.sortedCopyOf(fileSnapshots)
