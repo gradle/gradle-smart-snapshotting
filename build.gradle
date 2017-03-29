@@ -8,7 +8,7 @@
  */
 
 plugins {
-    id 'java'
+    id 'java-library'
     id 'groovy'
 }
 
@@ -18,3 +18,9 @@ repositories {
 }
 
 sourceCompatibility = 1.8
+
+dependencies {
+    implementation 'com.google.guava:guava:21.0'
+    testCompile 'org.codehaus.groovy:groovy:2.4.10'
+    testCompile 'org.spockframework:spock-core:1.1-groovy-2.4-rc-3'
+}
