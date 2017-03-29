@@ -13,6 +13,9 @@ import java.util.stream.Collectors
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+import static org.gradle.snapshot.configuration.DefaultSnapshotterModifier.modifier
+import static org.gradle.snapshot.configuration.ZipFileMatcher.IS_ZIP_FILE
+
 class SnapshotterTest extends Specification {
     @Rule
     TemporaryFolder temporaryFolder = new TemporaryFolder()
@@ -44,7 +47,7 @@ class SnapshotterTest extends Specification {
     }
 
     def "can look into zip files"() {
-        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(new ExpandZip()))
+        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(modifier(IS_ZIP_FILE, new ExpandZip())))
 
         def zipContents = temporaryFolder.newFolder('zipContents')
         def firstFile = new File(zipContents, "firstFile.txt")
@@ -71,7 +74,7 @@ class SnapshotterTest extends Specification {
     }
 
     def "can look into zip files in zip files"() {
-        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(new ExpandZip()))
+        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(modifier(IS_ZIP_FILE, new ExpandZip())))
 
         def zipInZipContents = temporaryFolder.newFolder('zipInZipContents')
         def firstFileInZip = new File(zipInZipContents, "firstFileInZip.txt")

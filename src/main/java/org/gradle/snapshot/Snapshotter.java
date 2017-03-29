@@ -1,5 +1,6 @@
 package org.gradle.snapshot;
 
+import org.gradle.snapshot.configuration.FileTreeOperation;
 import org.gradle.snapshot.configuration.SnapshotterConfiguration;
 import org.gradle.snapshot.hashing.FileHasher;
 
@@ -25,11 +26,12 @@ public class Snapshotter {
         return fileTree
                 .map(file -> configuration.getFileTreeOperation().flatMap(
                         fileTreeOperation -> {
-                            if (!fileTreeOperation.applies(file)) {
+                            if (!fileTreeOperation.getPredicate().test(file)) {
                                 return Optional.empty();
                             }
-                            return Optional.of(snapshot(fileTreeOperation.expand(file))
-                                    .collect(fileTreeOperation.collector(file)));
+                            FileTreeOperation operation = fileTreeOperation.getOperation();
+                            return Optional.of(snapshot(operation.expand(file))
+                                    .collect(operation.collector(file)));
                         }
                 ).orElseGet(() -> snapshotFile(file)));
     }

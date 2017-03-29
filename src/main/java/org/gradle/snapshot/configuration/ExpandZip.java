@@ -22,10 +22,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class ExpandZip implements FileTreeOperation {
-    public boolean applies(SnapshottableFile file) {
-        return file.getPath().endsWith(".zip");
-    }
-
     public Stream<SnapshottableFile> expand(SnapshottableFile file) {
         ZipInputStream zipInputStream = new ZipInputStream(file.open());
 
