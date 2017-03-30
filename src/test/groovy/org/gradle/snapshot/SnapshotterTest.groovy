@@ -7,7 +7,6 @@ import org.gradle.snapshot.configuration.SnapshotterConfiguration
 import org.gradle.snapshot.hashing.FileHasher
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
-import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.nio.file.Files
@@ -141,10 +140,9 @@ class SnapshotterTest extends Specification {
 
     }
 
-    @Ignore("Cannot have two modifiers yet")
     def "can ignore files in zip"() {
         snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(
-//                modifier(IS_ZIP_FILE, new ExpandZip()),
+                modifier(IS_ZIP_FILE, new ExpandZip()),
                 modifier({ it -> it.path.contains('ignored')}, new Filter())))
 
         def zipContents = temporaryFolder.newFolder('zipContents')
@@ -154,7 +152,7 @@ class SnapshotterTest extends Specification {
         def ignoredFile = new File(zipContents, "ignoredFile.txt")
         ignoredFile.createNewFile()
         ignoredFile.text = "Not snapshotted"
-        def zipFile = temporaryFolder.newFile("zipFile.zip")
+        def zipFile = temporaryFolder.newFile("ignoredZipFile.zip")
         zip(zipFile, zipContents)
 
         when:

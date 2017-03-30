@@ -1,25 +1,29 @@
 package org.gradle.snapshot.configuration;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Optional;
 
 public class SnapshotterConfiguration {
     private SnapshotterModifier<FileSnapshotOperation> fileSnapshotOperation;
-    private SnapshotterModifier<FileTreeOperation> fileTreeOperation;
+    private List<SnapshotterModifier<FileTreeOperation>> fileTreeOperations = ImmutableList.of();
 
     public SnapshotterConfiguration() {
     }
 
-    public SnapshotterConfiguration(SnapshotterModifier<FileTreeOperation> fileTreeOperation, SnapshotterModifier<FileSnapshotOperation> fileSnapshotOperation) {
+    public SnapshotterConfiguration(List<SnapshotterModifier<FileTreeOperation>> fileTreeOperations, SnapshotterModifier<FileSnapshotOperation> fileSnapshotOperation) {
         this.fileSnapshotOperation = fileSnapshotOperation;
-        this.fileTreeOperation = fileTreeOperation;
+        this.fileTreeOperations = fileTreeOperations;
     }
 
-    public SnapshotterConfiguration(SnapshotterModifier<FileTreeOperation> fileTreeOperation) {
-        this(fileTreeOperation, null);
+    @SafeVarargs
+    public SnapshotterConfiguration(SnapshotterModifier<FileTreeOperation>... fileTreeOperations) {
+        this(ImmutableList.copyOf(fileTreeOperations), null);
     }
 
-    public Optional<SnapshotterModifier<FileTreeOperation>> getFileTreeOperation() {
-        return Optional.ofNullable(fileTreeOperation);
+    public List<SnapshotterModifier<FileTreeOperation>> getFileTreeOperations() {
+        return fileTreeOperations;
     }
 
     public Optional<SnapshotterModifier<FileSnapshotOperation>> getFileSnapshotOperation() {

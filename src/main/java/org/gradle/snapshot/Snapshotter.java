@@ -25,7 +25,9 @@ public class Snapshotter {
 
     public Stream<FileSnapshot> snapshot(Stream<SnapshottableFile> fileTree) {
         return fileTree
-                .flatMap(file -> configuration.getFileTreeOperation().flatMap(
+                .flatMap(file -> configuration.getFileTreeOperations().stream()
+                        .filter(op -> op.getPredicate().test(file))
+                        .findFirst().flatMap(
                         fileTreeOperation -> {
                             if (!fileTreeOperation.getPredicate().test(file)) {
                                 return Optional.empty();
