@@ -1,17 +1,18 @@
 package org.gradle.snapshot
 
-import com.google.common.collect.ImmutableList
 import com.google.common.collect.Iterables
+import org.gradle.snapshot.configuration.ExpandDirectory
 import org.gradle.snapshot.configuration.ExpandZip
 import org.gradle.snapshot.configuration.Filter
 import org.gradle.snapshot.configuration.InterpretPropertyFile
-import org.gradle.snapshot.configuration.SnapshotterConfiguration
+import org.gradle.snapshot.configuration.SnapshotterContext
 import org.gradle.snapshot.hashing.FileHasher
 import org.gradle.snapshot.util.TestFile
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
 
+import java.nio.file.Paths
 import java.util.stream.Stream
 
 import static java.util.stream.Collectors.toList
@@ -21,7 +22,10 @@ import static org.gradle.snapshot.configuration.ZipFileMatcher.IS_ZIP_FILE
 class SnapshotterTest extends Specification {
     @Rule
     TemporaryFolder temporaryFolder = new TemporaryFolder()
-    Snapshotter snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration())
+
+    private FileHasher hasher = new FileHasher()
+    private Snapshotter snapshotter = new Snapshotter(hasher)
+    private SnapshotterContext context = new SnapshotterContext()
 
     TestFile file(Object... path) {
         return new TestFile(temporaryFolder.root, path)
@@ -39,7 +43,7 @@ class SnapshotterTest extends Specification {
                 secondFile,
                 file('empty-file.txt').createFile(),
                 file('someDirectory').createDir(),
-                file(temporaryFolder.root, 'does-not-exist.txt')
+                file('does-not-exist.txt')
         )
 
         then:
@@ -52,8 +56,7 @@ class SnapshotterTest extends Specification {
     }
 
     def "can look into zip files"() {
-        snapshotter = new Snapshotter(new FileHasher(),
-                new SnapshotterConfiguration(modifier(IS_ZIP_FILE, new ExpandZip())))
+        context = context.withFileTreeOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
 
         def zipFile = file('zipContents').create {
             file('firstFile.txt').text = "Some text"
@@ -77,7 +80,7 @@ class SnapshotterTest extends Specification {
     }
 
     def "can look into zip files in zip files"() {
-        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(modifier(IS_ZIP_FILE, new ExpandZip())))
+        context = context.withFileTreeOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
 
         def zipInZipContents = file('zipInZipContents').create {
             file("firstFileInZip.txt").text = "Some text in zip"
@@ -107,8 +110,7 @@ class SnapshotterTest extends Specification {
     }
 
     def "can ignore files"() {
-        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(
-                modifier({ it -> it.path.contains('ignored')}, new Filter())))
+        context = context.withFileTreeOperation(modifier({ it -> it.path.contains('ignored') }, new Filter()))
 
         def firstFile = file("my-name.txt")
         firstFile.text = "I am snapshotted"
@@ -133,9 +135,9 @@ class SnapshotterTest extends Specification {
     }
 
     def "can ignore files in zip"() {
-        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(
-                modifier(IS_ZIP_FILE, new ExpandZip()),
-                modifier({ it -> it.path.contains('ignored')}, new Filter())))
+        context = context
+                .withFileTreeOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
+                .withFileTreeOperation(modifier({ it -> it.path.contains('ignored') }, new Filter()))
 
         def zipContents = file('zipContents').create {
             file("firstFileInZip.txt").text = "Some text in zip"
@@ -165,10 +167,9 @@ class SnapshotterTest extends Specification {
     }
 
     def "can interpret property files"() {
-        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(
-                ImmutableList.of(),
-                modifier({ it.path.endsWith('.properties') }, new InterpretPropertyFile())
-        ))
+        context = context.withFileSnapshotterOperation(modifier({
+            it.path.endsWith('.properties')
+        }, new InterpretPropertyFile()))
 
         def propertyFile = file('my.properties')
         propertyFile.text = """
@@ -197,10 +198,38 @@ class SnapshotterTest extends Specification {
         then:
         def secondSnapshot = Iterables.getOnlyElement(result)
         firstSnapshot.hash == secondSnapshot.hash
+    }
 
+    def "expands directories"() {
+        context = context.withFileTreeOperation(
+                modifier(
+                        { it.isEmpty() },
+                        { it.type == FileType.DIRECTORY },
+                        new ExpandDirectory()))
+
+        def directory = file('dir').create {
+            file('firstFile.txt').text = "Some text"
+            file('secondFile.txt').text = "Second File"
+            subdir {
+                file('someOtherFile.log').text = "File in subdir"
+            }
+        }
+
+        when:
+        def result = snapshotFiles(directory)
+
+        then:
+        result.size() == 5
+        result*.path.collect(Paths.&get)*.fileName*.toString() == ['dir', 'firstFile.txt', 'secondFile.txt', 'subdir', 'someOtherFile.log']
+        result*.hash*.toString() == [
+                FileHasher.DIRECTORY_HASH.toString(),
+                '9db5682a4d778ca2cb79580bdb67083f',
+                '82e72efeddfca85ddb625e88af3fe973',
+                FileHasher.DIRECTORY_HASH.toString(),
+                'a9cca315f4b8650dccfa3d93284998ef']
     }
 
     private List<FileSnapshot> snapshotFiles(File... propertyFiles) {
-        snapshotter.snapshotFiles(Stream.<File>of(propertyFiles)).collect(toList())
+        snapshotter.snapshotFiles(Stream.<File> of(propertyFiles), context).collect(toList())
     }
 }
