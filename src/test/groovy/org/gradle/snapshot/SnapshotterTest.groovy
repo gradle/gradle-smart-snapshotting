@@ -23,8 +23,7 @@ class SnapshotterTest extends Specification {
     @Rule
     TemporaryFolder temporaryFolder = new TemporaryFolder()
 
-    private FileHasher hasher = new FileHasher()
-    private Snapshotter snapshotter = new Snapshotter(hasher)
+    private Snapshotter snapshotter = new Snapshotter(new FileHasher())
     private SnapshotterContext context = new SnapshotterContext()
 
     TestFile file(Object... path) {
