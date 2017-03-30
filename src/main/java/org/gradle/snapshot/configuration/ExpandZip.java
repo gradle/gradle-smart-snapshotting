@@ -1,6 +1,5 @@
 package org.gradle.snapshot.configuration;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.gradle.snapshot.FileSnapshot;
@@ -38,12 +37,14 @@ public class ExpandZip implements FileTreeOperation {
     }
 
     @Override
+    public Stream<FileSnapshot> collect(Stream<FileSnapshot> snapshots, SnapshottableFile file) {
+        return Stream.of(snapshots.sorted().collect(collector(file)));
+    }
+
     public Collector<FileSnapshot, ?, FileSnapshot> collector(SnapshottableFile file) {
         return Collectors.collectingAndThen(Collectors.toList(), fileSnapshots -> {
                     Hasher hasher = Hashing.md5().newHasher();
-                    ImmutableList.sortedCopyOf(fileSnapshots)
-                            .forEach(fileSnapshot -> hasher.putBytes(fileSnapshot.getHash().asBytes()));
-
+                    fileSnapshots.forEach(fileSnapshot -> hasher.putBytes(fileSnapshot.getHash().asBytes()));
                     return new FileSnapshot(file.getPath(), hasher.hash());
                 }
         );
