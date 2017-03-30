@@ -1,14 +1,18 @@
 package org.gradle.snapshot
 
 import com.google.common.collect.ImmutableList
+import com.google.common.collect.Iterables
 import org.gradle.snapshot.configuration.ExpandZip
 import org.gradle.snapshot.configuration.Filter
+import org.gradle.snapshot.configuration.InterpretPropertyFile
 import org.gradle.snapshot.configuration.SnapshotterConfiguration
 import org.gradle.snapshot.hashing.FileHasher
 import org.gradle.snapshot.util.TestFile
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
+
+import java.util.stream.Stream
 
 import static java.util.stream.Collectors.toList
 import static org.gradle.snapshot.configuration.DefaultSnapshotterModifier.modifier
@@ -28,16 +32,15 @@ class SnapshotterTest extends Specification {
         firstFile.text = 'Contents of first file'
         TestFile secondFile = file('someFile.log')
         secondFile.text = 'Different contents'
-        def inputFiles = ImmutableList.of(
+
+        when:
+        List<FileSnapshot> result = snapshotFiles(
                 firstFile,
                 secondFile,
                 file('empty-file.txt').createFile(),
                 file('someDirectory').createDir(),
                 file(temporaryFolder.root, 'does-not-exist.txt')
         )
-
-        when:
-        List<FileSnapshot> result = snapshotter.snapshotFiles(inputFiles.stream()).collect(toList())
 
         then:
         result*.hash*.toString() == [
@@ -64,7 +67,7 @@ class SnapshotterTest extends Specification {
         fileNotInZip.text = "Contents of first file"
 
         when:
-        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(toList())
+        List<FileSnapshot> snapshots = snapshotFiles(zipFile, fileNotInZip)
 
         then:
         snapshots*.hash*.toString() == [
@@ -94,7 +97,7 @@ class SnapshotterTest extends Specification {
         def zipFile = zipContents.createZip(file('zipFile.zip'))
 
         when:
-        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(toList())
+        List<FileSnapshot> snapshots = snapshotFiles(zipFile, fileNotInZip)
 
         then:
         snapshots*.hash*.toString() == [
@@ -113,7 +116,7 @@ class SnapshotterTest extends Specification {
         ignoredFile.text = "I am not snapshotted."
 
         when:
-        List<FileSnapshot> result = snapshotter.snapshotFiles([firstFile, ignoredFile].stream()).collect(toList())
+        List<FileSnapshot> result = snapshotFiles(firstFile, ignoredFile)
 
         then:
         result.size() == 1
@@ -122,7 +125,7 @@ class SnapshotterTest extends Specification {
 
         when:
         ignoredFile << "I am also ignored."
-        result = snapshotter.snapshotFiles([ignoredFile, firstFile].stream()).collect(toList())
+        result = snapshotFiles(ignoredFile, firstFile)
 
         then:
         result.size() == 1
@@ -143,7 +146,7 @@ class SnapshotterTest extends Specification {
         def zipFile = zipContents.createZip(file("notIgnoredZipFile.zip"))
 
         when:
-        List<FileSnapshot> result = snapshotter.snapshotFiles([zipFile].stream()).collect(toList())
+        List<FileSnapshot> result = snapshotFiles(zipFile)
 
         then:
         result.size() == 1
@@ -154,10 +157,50 @@ class SnapshotterTest extends Specification {
         zipFile.delete()
         zipContents.createZip(file("notIgnoredZipFile.zip"))
 
-        result = snapshotter.snapshotFiles([zipFile].stream()).collect(toList())
+        result = snapshotFiles(zipFile)
 
         then:
         result.size() == 1
         result.first().hash == hashOfZip
+    }
+
+    def "can interpret property files"() {
+        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(
+                ImmutableList.of(),
+                modifier({ it.path.endsWith('.properties') }, new InterpretPropertyFile())
+        ))
+
+        def propertyFile = file('my.properties')
+        propertyFile.text = """
+            # Comment
+            firstProperty=one
+            secondProperty=two
+            
+        """.stripIndent()
+
+        when:
+        def result = snapshotFiles(propertyFile)
+
+        then:
+        def firstSnapshot = Iterables.getOnlyElement(result)
+
+        when:
+        propertyFile.text = """
+            # differentComment
+            secondProperty=two
+            # Some other comment
+            firstProperty=one
+        """.stripIndent()
+
+        result = snapshotFiles(propertyFile)
+
+        then:
+        def secondSnapshot = Iterables.getOnlyElement(result)
+        firstSnapshot.hash == secondSnapshot.hash
+
+    }
+
+    private List<FileSnapshot> snapshotFiles(File... propertyFiles) {
+        snapshotter.snapshotFiles(Stream.<File>of(propertyFiles)).collect(toList())
     }
 }
