@@ -19,7 +19,7 @@ public class Snapshotter {
 
     private SnapshotterConfiguration configuration;
 
-    public Stream<FileSnapshot> snapshotFiles(Stream<File> fileTree) {
+    public Stream<FileSnapshot> snapshotFiles(Stream<? extends File> fileTree) {
         return snapshot(fileTree.map(PhysicalFile::new));
     }
 

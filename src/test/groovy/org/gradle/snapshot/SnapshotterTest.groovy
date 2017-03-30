@@ -5,14 +5,10 @@ import org.gradle.snapshot.configuration.ExpandZip
 import org.gradle.snapshot.configuration.Filter
 import org.gradle.snapshot.configuration.SnapshotterConfiguration
 import org.gradle.snapshot.hashing.FileHasher
+import org.gradle.snapshot.util.TestFile
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
-
-import java.nio.file.Files
-import java.util.stream.Collectors
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 
 import static java.util.stream.Collectors.toList
 import static org.gradle.snapshot.configuration.DefaultSnapshotterModifier.modifier
@@ -23,17 +19,21 @@ class SnapshotterTest extends Specification {
     TemporaryFolder temporaryFolder = new TemporaryFolder()
     Snapshotter snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration())
 
+    TestFile file(Object... path) {
+        return new TestFile(temporaryFolder.root, path)
+    }
+
     def "snapshots physical files"() {
-        def firstFile = temporaryFolder.newFile('someFile.txt')
+        TestFile firstFile = file('someFile.txt')
         firstFile.text = 'Contents of first file'
-        def secondFile = temporaryFolder.newFile('someFile.log')
+        TestFile secondFile = file('someFile.log')
         secondFile.text = 'Different contents'
         def inputFiles = ImmutableList.of(
                 firstFile,
                 secondFile,
-                temporaryFolder.newFile('empty-file.txt'),
-                temporaryFolder.newFolder('someDirectory'),
-                new File(temporaryFolder.root, 'does-not-exist.txt')
+                file('empty-file.txt').createFile(),
+                file('someDirectory').createDir(),
+                file(temporaryFolder.root, 'does-not-exist.txt')
         )
 
         when:
@@ -49,28 +49,26 @@ class SnapshotterTest extends Specification {
     }
 
     def "can look into zip files"() {
-        snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(modifier(IS_ZIP_FILE, new ExpandZip())))
+        snapshotter = new Snapshotter(new FileHasher(),
+                new SnapshotterConfiguration(modifier(IS_ZIP_FILE, new ExpandZip())))
 
-        def zipContents = temporaryFolder.newFolder('zipContents')
-        def firstFile = new File(zipContents, "firstFile.txt")
-        firstFile.createNewFile()
-        firstFile.text = "Some text"
-        def secondFile = new File(zipContents, "secondFile.txt")
-        secondFile.createNewFile()
-        secondFile.text = "second file"
+        def zipFile = file('zipContents').create {
+            file('firstFile.txt').text = "Some text"
+            file('secondFile.txt').text = "Second File"
+            subdir {
+                file('someOtherFile.log').text = "File in subdir"
+            }
+        }.createZip(file('input.zip'))
 
-        def fileNotInZip = temporaryFolder.newFile("unrelatedFile.txt")
+        def fileNotInZip = file("unrelatedFile.txt")
         fileNotInZip.text = "Contents of first file"
 
-        def zipFile = temporaryFolder.newFile("input.zip")
-        zip(zipFile, zipContents)
-
         when:
-        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(Collectors.<FileSnapshot> toList())
+        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(toList())
 
         then:
         snapshots*.hash*.toString() == [
-                'adfb1f084e157fd1b1814912b44ca8ef',
+                'fe69ba43604ef7197e1d4dd3a7f57d2e',
                 'b89ea7bbde86a0163569055ff69a7fa6'
         ]
     }
@@ -78,32 +76,25 @@ class SnapshotterTest extends Specification {
     def "can look into zip files in zip files"() {
         snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(modifier(IS_ZIP_FILE, new ExpandZip())))
 
-        def zipInZipContents = temporaryFolder.newFolder('zipInZipContents')
-        def firstFileInZip = new File(zipInZipContents, "firstFileInZip.txt")
-        firstFileInZip.createNewFile()
-        firstFileInZip.text = "Some text in zip"
-        def secondFileInZip = new File(zipInZipContents, "secondFileInZip.txt")
-        secondFileInZip.createNewFile()
-        secondFileInZip.text = "second file in zip"
+        def zipInZipContents = file('zipInZipContents').create {
+            file("firstFileInZip.txt").text = "Some text in zip"
+            file("secondFileInZip.txt").text = "second file in zip"
+        }
 
 
-        def zipContents = temporaryFolder.newFolder('zipContents')
-        def firstFile = new File(zipContents, "firstFile.txt")
-        firstFile.createNewFile()
-        firstFile.text = "Some text"
-        def secondFile = new File(zipContents, "secondFile.txt")
-        secondFile.createNewFile()
-        secondFile.text = "second file"
-        zip(new File(zipContents, "zipInZip.zip"), zipInZipContents)
+        def zipContents = file('zipContents').create {
+            file("firstFile.txt").text = "Some text"
+            file("secondFile.txt").text = "second file"
+            zipInZipContents.createZip(file("zipInZip.zip"))
+        }
 
-        def fileNotInZip = temporaryFolder.newFile("unrelatedFile.txt")
+        def fileNotInZip = file("unrelatedFile.txt")
         fileNotInZip.text = "Contents of first file"
 
-        def zipFile = temporaryFolder.newFile("input.zip")
-        zip(zipFile, zipContents)
+        def zipFile = zipContents.createZip(file('zipFile.zip'))
 
         when:
-        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(Collectors.<FileSnapshot>toList())
+        List<FileSnapshot> snapshots = snapshotter.snapshotFiles([zipFile, fileNotInZip].stream()).collect(toList())
 
         then:
         snapshots*.hash*.toString() == [
@@ -116,9 +107,9 @@ class SnapshotterTest extends Specification {
         snapshotter = new Snapshotter(new FileHasher(), new SnapshotterConfiguration(
                 modifier({ it -> it.path.contains('ignored')}, new Filter())))
 
-        def firstFile = temporaryFolder.newFile("my-name.txt")
+        def firstFile = file("my-name.txt")
         firstFile.text = "I am snapshotted"
-        def ignoredFile = temporaryFolder.newFile("ignored.txt")
+        def ignoredFile = file("ignored.txt")
         ignoredFile.text = "I am not snapshotted."
 
         when:
@@ -136,8 +127,6 @@ class SnapshotterTest extends Specification {
         then:
         result.size() == 1
         result.first().hash == hashOfNotIgnoredFile
-
-
     }
 
     def "can ignore files in zip"() {
@@ -145,15 +134,13 @@ class SnapshotterTest extends Specification {
                 modifier(IS_ZIP_FILE, new ExpandZip()),
                 modifier({ it -> it.path.contains('ignored')}, new Filter())))
 
-        def zipContents = temporaryFolder.newFolder('zipContents')
-        def firstFileInZip = new File(zipContents, "firstFileInZip.txt")
-        firstFileInZip.createNewFile()
-        firstFileInZip.text = "Some text in zip"
-        def ignoredFile = new File(zipContents, "ignoredFile.txt")
-        ignoredFile.createNewFile()
+        def zipContents = file('zipContents').create {
+            file("firstFileInZip.txt").text = "Some text in zip"
+        }
+        def ignoredFile = file(zipContents, "ignoredFile.txt")
         ignoredFile.text = "Not snapshotted"
-        def zipFile = temporaryFolder.newFile("ignoredZipFile.zip")
-        zip(zipFile, zipContents)
+
+        def zipFile = zipContents.createZip(file("notIgnoredZipFile.zip"))
 
         when:
         List<FileSnapshot> result = snapshotter.snapshotFiles([zipFile].stream()).collect(toList())
@@ -165,29 +152,12 @@ class SnapshotterTest extends Specification {
         when:
         ignoredFile << "I am also ignored."
         zipFile.delete()
-        zip(zipFile, zipContents)
+        zipContents.createZip(file("notIgnoredZipFile.zip"))
+
         result = snapshotter.snapshotFiles([zipFile].stream()).collect(toList())
 
         then:
         result.size() == 1
         result.first().hash == hashOfZip
-
-
-    }
-
-    private static void zip(File zipFile, File inputDir) {
-        new ZipOutputStream(new FileOutputStream(zipFile)).withStream { zipOutputStream ->
-            inputDir.eachFile() { file ->
-                zipOutputStream.putNextEntry(zipEntry(file))
-                Files.copy(file.toPath(), zipOutputStream)
-                zipOutputStream.closeEntry()
-            }
-        }
-    }
-
-    private static ZipEntry zipEntry(File file) {
-        def entry = new ZipEntry(file.getName())
-        entry.setTime(file.lastModified())
-        return entry
     }
 }
