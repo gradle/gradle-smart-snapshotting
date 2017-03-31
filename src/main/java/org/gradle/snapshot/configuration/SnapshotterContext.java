@@ -3,45 +3,42 @@ package org.gradle.snapshot.configuration;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class SnapshotterContext {
-    private final SnapshotterModifier<FileSnapshotOperation> fileSnapshotOperation;
-    private final List<SnapshotterModifier<FileTreeOperation>> fileTreeOperations;
+    private final List<SnapshotterModifier> snapshotOperations;
     private final List<ContextElement> contextElements;
 
     public SnapshotterContext() {
-        this(ImmutableList.of(), null, ImmutableList.of());
+        this(ImmutableList.of(), ImmutableList.of());
     }
 
-    public SnapshotterContext(List<SnapshotterModifier<FileTreeOperation>> fileTreeOperations, SnapshotterModifier<FileSnapshotOperation> fileSnapshotOperation, List<ContextElement> contextElements) {
-        this.fileSnapshotOperation = fileSnapshotOperation;
-        this.fileTreeOperations = fileTreeOperations;
+    private SnapshotterContext(List<SnapshotterModifier> snapshotOperations, List<ContextElement> contextElements) {
+        this.snapshotOperations = snapshotOperations;
         this.contextElements = contextElements;
     }
 
-    public List<SnapshotterModifier<FileTreeOperation>> getFileTreeOperations() {
-        return fileTreeOperations;
+    public List<SnapshotterModifier> getSnapshotOperations() {
+        return snapshotOperations;
     }
 
-    public Optional<SnapshotterModifier<FileSnapshotOperation>> getFileSnapshotOperation() {
-        return Optional.ofNullable(fileSnapshotOperation);
+    public SnapshotterContext withSnapshotOperations(Iterable<SnapshotterModifier> operations) {
+        return new SnapshotterContext(ImmutableList.copyOf(operations), contextElements);
     }
 
-    public SnapshotterContext withFileTreeOperations(Iterable<SnapshotterModifier<FileTreeOperation>> operations) {
-        return new SnapshotterContext(ImmutableList.copyOf(operations), fileSnapshotOperation, contextElements);
+    public SnapshotterContext withSnapshotOperation(SnapshotterModifier operation) {
+        return withSnapshotOperations(ImmutableList.<SnapshotterModifier>builder().addAll(snapshotOperations).add(operation).build());
     }
 
-    public SnapshotterContext withFileTreeOperation(SnapshotterModifier<FileTreeOperation> operation) {
-        return withFileTreeOperations(ImmutableList.<SnapshotterModifier<FileTreeOperation>>builder().addAll(fileTreeOperations).add(operation).build());
+    public SnapshotterContext withoutSnapshotOperation(SnapshotOperation operation) {
+        return withSnapshotOperations(
+                snapshotOperations.stream()
+                        .filter(modifier -> !modifier.getOperation().equals(operation))
+                        .collect(Collectors.toList()));
     }
 
-    public SnapshotterContext withFileSnapshotterOperation(SnapshotterModifier<FileSnapshotOperation> operation) {
-        return new SnapshotterContext(fileTreeOperations, operation, contextElements);
-    }
-
-    public SnapshotterContext addContext(ContextElement element) {
-        return new SnapshotterContext(fileTreeOperations, fileSnapshotOperation,
+    public SnapshotterContext addContextElement(ContextElement element) {
+        return new SnapshotterContext(snapshotOperations,
                 ImmutableList.<ContextElement>builder().addAll(contextElements).add(element).build());
     }
 

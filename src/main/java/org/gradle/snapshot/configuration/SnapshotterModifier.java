@@ -3,10 +3,9 @@ package org.gradle.snapshot.configuration;
 import org.gradle.snapshot.SnapshottableFile;
 
 import java.util.List;
-import java.util.function.Predicate;
+import java.util.function.BiPredicate;
 
-public interface SnapshotterModifier<T> {
-    Predicate<SnapshottableFile> getFilePredicate();
-    Predicate<List<ContextElement>> getContextPredicate();
-    T getOperation();
+public interface SnapshotterModifier {
+    BiPredicate<SnapshottableFile, List<ContextElement>> getShouldModify();
+    SnapshotOperation getOperation();
 }

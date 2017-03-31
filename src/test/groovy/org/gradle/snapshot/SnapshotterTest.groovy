@@ -23,7 +23,7 @@ class SnapshotterTest extends Specification {
     @Rule
     TemporaryFolder temporaryFolder = new TemporaryFolder()
 
-    private Snapshotter snapshotter = new Snapshotter(new FileHasher())
+    private DefaultSnapshotter snapshotter = new DefaultSnapshotter(new FileHasher())
     private SnapshotterContext context = new SnapshotterContext()
 
     TestFile file(Object... path) {
@@ -55,7 +55,7 @@ class SnapshotterTest extends Specification {
     }
 
     def "can look into zip files"() {
-        context = context.withFileTreeOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
+        context = context.withSnapshotOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
 
         def zipFile = file('zipContents').create {
             file('firstFile.txt').text = "Some text"
@@ -79,7 +79,7 @@ class SnapshotterTest extends Specification {
     }
 
     def "can look into zip files in zip files"() {
-        context = context.withFileTreeOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
+        context = context.withSnapshotOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
 
         def zipInZipContents = file('zipInZipContents').create {
             file("firstFileInZip.txt").text = "Some text in zip"
@@ -109,7 +109,7 @@ class SnapshotterTest extends Specification {
     }
 
     def "can ignore files"() {
-        context = context.withFileTreeOperation(modifier({ it -> it.path.contains('ignored') }, new Filter()))
+        context = context.withSnapshotOperation(modifier({ file, ctx -> file.path.contains('ignored') }, new Filter()))
 
         def firstFile = file("my-name.txt")
         firstFile.text = "I am snapshotted"
@@ -135,8 +135,8 @@ class SnapshotterTest extends Specification {
 
     def "can ignore files in zip"() {
         context = context
-                .withFileTreeOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
-                .withFileTreeOperation(modifier({ it -> it.path.contains('ignored') }, new Filter()))
+                .withSnapshotOperation(modifier(IS_ZIP_FILE, new ExpandZip()))
+                .withSnapshotOperation(modifier({ file, ctx -> file.path.contains('ignored') }, new Filter()))
 
         def zipContents = file('zipContents').create {
             file("firstFileInZip.txt").text = "Some text in zip"
@@ -166,8 +166,8 @@ class SnapshotterTest extends Specification {
     }
 
     def "can interpret property files"() {
-        context = context.withFileSnapshotterOperation(modifier({
-            it.path.endsWith('.properties')
+        context = context.withSnapshotOperation(modifier({ file, ctx ->
+            file.path.endsWith('.properties')
         }, new InterpretPropertyFile()))
 
         def propertyFile = file('my.properties')
@@ -200,10 +200,9 @@ class SnapshotterTest extends Specification {
     }
 
     def "expands directories"() {
-        context = context.withFileTreeOperation(
+        context = context.withSnapshotOperation(
                 modifier(
-                        { it.isEmpty() },
-                        { it.type == FileType.DIRECTORY },
+                        { file, ctx -> ctx.isEmpty() && file.type == FileType.DIRECTORY },
                         new ExpandDirectory()))
 
         def directory = file('dir').create {
