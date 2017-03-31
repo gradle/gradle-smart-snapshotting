@@ -5,6 +5,7 @@ import com.google.common.hash.Hashing;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.FileType;
 import org.gradle.snapshot.SnapshottableFile;
+import org.gradle.snapshot.Snapshotter;
 
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -22,8 +23,17 @@ import java.util.zip.ZipInputStream;
 
 import static org.gradle.snapshot.FileSnapshot.FILE_SNAPSHOT_COMPARATOR;
 
-public class ExpandZip implements FileTreeOperation {
-    public Stream<SnapshottableFile> expand(SnapshottableFile file) {
+public class ExpandZip implements SingleFileSnapshotOperation {
+    @Override
+    public FileSnapshot snapshotSingleFile(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter) {
+        Stream<FileSnapshot> expandedSnapshots = snapshotter.snapshot(
+                expand(file),
+                context.addContextElement(new ContextElement(this.getClass()))
+        );
+        return collect(expandedSnapshots, file);
+    }
+
+    private Stream<SnapshottableFile> expand(SnapshottableFile file) {
         ZipInputStream zipInputStream = new ZipInputStream(file.open());
 
         return StreamSupport.stream(
@@ -38,10 +48,9 @@ public class ExpandZip implements FileTreeOperation {
         });
     }
 
-    @Override
-    public Stream<FileSnapshot> collect(Stream<FileSnapshot> snapshots, SnapshottableFile file) {
+    private FileSnapshot collect(Stream<FileSnapshot> snapshots, SnapshottableFile file) {
         try (Stream<FileSnapshot> closableSnapshots = snapshots) {
-            return Stream.of(closableSnapshots.sorted(FILE_SNAPSHOT_COMPARATOR).collect(collector(file)));
+            return closableSnapshots.sorted(FILE_SNAPSHOT_COMPARATOR).collect(collector(file));
         }
     }
 

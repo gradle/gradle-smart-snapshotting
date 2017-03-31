@@ -1,13 +1,13 @@
 package org.gradle.snapshot.configuration;
 
 public class ContextElement {
-    private final Class<? extends FileTreeOperation> operation;
+    private final Class<?> operation;
 
-    public ContextElement(Class<? extends FileTreeOperation> operation) {
+    public ContextElement(Class<?> operation) {
         this.operation = operation;
     }
 
-    public Class<? extends FileTreeOperation> getOperation() {
+    public Class<?> getOperation() {
         return operation;
     }
 }

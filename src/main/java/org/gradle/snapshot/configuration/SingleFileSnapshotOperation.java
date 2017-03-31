@@ -7,11 +7,12 @@ import org.gradle.snapshot.Snapshotter;
 import java.util.stream.Stream;
 
 @FunctionalInterface
-public interface FileSnapshotOperation extends SnapshotOperation {
+public interface SingleFileSnapshotOperation extends SnapshotOperation {
+
     @Override
     default Stream<FileSnapshot> snapshot(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter) {
-        return snapshotter.snapshot(Stream.of(transform(file)), context.withoutSnapshotOperation(this));
+        return Stream.of(snapshotSingleFile(file, context, snapshotter));
     }
 
-    SnapshottableFile transform(SnapshottableFile snapshottableFile);
+    FileSnapshot snapshotSingleFile(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter);
 }

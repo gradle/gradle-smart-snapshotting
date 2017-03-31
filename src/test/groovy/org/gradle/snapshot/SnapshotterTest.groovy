@@ -5,30 +5,15 @@ import org.gradle.snapshot.configuration.ExpandDirectory
 import org.gradle.snapshot.configuration.ExpandZip
 import org.gradle.snapshot.configuration.Filter
 import org.gradle.snapshot.configuration.InterpretPropertyFile
-import org.gradle.snapshot.configuration.SnapshotterContext
 import org.gradle.snapshot.hashing.FileHasher
 import org.gradle.snapshot.util.TestFile
-import org.junit.Rule
-import org.junit.rules.TemporaryFolder
-import spock.lang.Specification
 
 import java.nio.file.Paths
-import java.util.stream.Stream
 
-import static java.util.stream.Collectors.toList
 import static org.gradle.snapshot.configuration.DefaultSnapshotterModifier.modifier
 import static org.gradle.snapshot.configuration.ZipFileMatcher.IS_ZIP_FILE
 
-class SnapshotterTest extends Specification {
-    @Rule
-    TemporaryFolder temporaryFolder = new TemporaryFolder()
-
-    private DefaultSnapshotter snapshotter = new DefaultSnapshotter(new FileHasher())
-    private SnapshotterContext context = new SnapshotterContext()
-
-    TestFile file(Object... path) {
-        return new TestFile(temporaryFolder.root, path)
-    }
+class SnapshotterTest extends AbstractSnapshotterTest {
 
     def "snapshots physical files"() {
         TestFile firstFile = file('someFile.txt')
@@ -225,9 +210,5 @@ class SnapshotterTest extends Specification {
                 '82e72efeddfca85ddb625e88af3fe973',
                 FileHasher.DIRECTORY_HASH.toString(),
                 'a9cca315f4b8650dccfa3d93284998ef']
-    }
-
-    private List<FileSnapshot> snapshotFiles(File... propertyFiles) {
-        snapshotter.snapshotFiles(Stream.<File> of(propertyFiles), context).collect(toList())
     }
 }

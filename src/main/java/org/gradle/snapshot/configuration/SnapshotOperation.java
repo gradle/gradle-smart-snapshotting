@@ -6,6 +6,7 @@ import org.gradle.snapshot.Snapshotter;
 
 import java.util.stream.Stream;
 
+@FunctionalInterface
 public interface SnapshotOperation {
     Stream<FileSnapshot> snapshot(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter);
 }
