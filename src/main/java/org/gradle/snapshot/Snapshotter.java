@@ -26,13 +26,13 @@ public class Snapshotter {
                 .flatMap(file -> context.getFileTreeOperations().stream()
                         .filter(op -> op.getFilePredicate().test(file) && op.getContextPredicate().test(context.getContextElements()))
                         .findFirst().flatMap(
-                        fileTreeOperation -> {
-                            FileTreeOperation operation = fileTreeOperation.getOperation();
-                            return Optional.of(operation.collect(snapshot(operation.expand(file),
-                                    context.addContext(new ContextElement(operation.getClass()))),
-                                    file));
-                        }
-                ).orElseGet(() -> Stream.of(snapshotFile(file, context))));
+                                fileTreeOperation -> {
+                                    FileTreeOperation operation = fileTreeOperation.getOperation();
+                                    return Optional.of(operation.collect(snapshot(operation.expand(file),
+                                            context.addContext(new ContextElement(operation.getClass()))),
+                                            file));
+                                }
+                        ).orElseGet(() -> Stream.of(snapshotFile(file, context))));
     }
 
     private FileSnapshot snapshotFile(SnapshottableFile file, SnapshotterContext context) {
