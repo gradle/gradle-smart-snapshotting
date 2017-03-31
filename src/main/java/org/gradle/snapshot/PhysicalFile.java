@@ -1,10 +1,11 @@
 package org.gradle.snapshot;
 
+import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 
 public class PhysicalFile implements SnapshottableFile {
     private final File file;
@@ -20,8 +21,8 @@ public class PhysicalFile implements SnapshottableFile {
     @Override
     public InputStream open() {
         try {
-            return new FileInputStream(file);
-        } catch (FileNotFoundException e) {
+            return new BufferedInputStream(Files.newInputStream(file.toPath()));
+        } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }

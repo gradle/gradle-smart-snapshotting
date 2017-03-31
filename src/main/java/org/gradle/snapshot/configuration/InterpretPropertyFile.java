@@ -16,9 +16,9 @@ import java.util.stream.Collectors;
 public class InterpretPropertyFile implements FileSnapshotOperation {
     @Override
     public SnapshottableFile transform(SnapshottableFile snapshottableFile) {
-        try {
+        try (InputStream inputStream = snapshottableFile.open()) {
             Properties properties = new Properties();
-            properties.load(snapshottableFile.open());
+            properties.load(inputStream);
             return new PropertyFile(snapshottableFile.getPath(), properties);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -29,7 +29,7 @@ public class InterpretPropertyFile implements FileSnapshotOperation {
         private final String path;
         private final Properties properties;
 
-        public PropertyFile(String path, Properties properties) {
+        private PropertyFile(String path, Properties properties) {
             this.path = path;
             this.properties = properties;
         }

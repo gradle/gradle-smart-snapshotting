@@ -8,6 +8,7 @@ import com.google.common.io.ByteStreams;
 import org.gradle.snapshot.SnapshottableFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 
 public class FileHasher {
@@ -21,9 +22,9 @@ public class FileHasher {
             case DIRECTORY:
                 return DIRECTORY_HASH;
             case REGULAR:
-                try {
+                try (InputStream inputStream = snapshottableFile.open()) {
                     Hasher hasher = createHasher();
-                    ByteStreams.copy(snapshottableFile.open(), Funnels.asOutputStream(hasher));
+                    ByteStreams.copy(inputStream, Funnels.asOutputStream(hasher));
                     return hasher.hash();
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);

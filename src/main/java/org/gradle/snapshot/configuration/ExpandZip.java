@@ -38,10 +38,12 @@ public class ExpandZip implements FileTreeOperation {
 
     @Override
     public Stream<FileSnapshot> collect(Stream<FileSnapshot> snapshots, SnapshottableFile file) {
-        return Stream.of(snapshots.sorted().collect(collector(file)));
+        try (Stream<FileSnapshot> closableSnapshots = snapshots) {
+            return Stream.of(closableSnapshots.sorted().collect(collector(file)));
+        }
     }
 
-    public Collector<FileSnapshot, ?, FileSnapshot> collector(SnapshottableFile file) {
+    private Collector<FileSnapshot, ?, FileSnapshot> collector(SnapshottableFile file) {
         return Collectors.collectingAndThen(Collectors.toList(), fileSnapshots -> {
                     Hasher hasher = Hashing.md5().newHasher();
                     fileSnapshots.forEach(fileSnapshot -> hasher.putBytes(fileSnapshot.getHash().asBytes()));
@@ -54,7 +56,7 @@ public class ExpandZip implements FileTreeOperation {
         private final ZipInputStream inputStream;
         private ZipEntry current;
 
-        public ZipIterator(ZipInputStream inputStream) {
+        private ZipIterator(ZipInputStream inputStream) {
             this.inputStream = inputStream;
         }
 
@@ -86,7 +88,7 @@ public class ExpandZip implements FileTreeOperation {
             private final ZipInputStream inputStream;
             private final FileType fileType;
 
-            public ZipSnapshottableFile(ZipEntry current, ZipInputStream inputStream) {
+            private ZipSnapshottableFile(ZipEntry current, ZipInputStream inputStream) {
                 this.current = current;
                 this.inputStream = inputStream;
                 this.fileType = current.isDirectory() ? FileType.DIRECTORY : FileType.REGULAR;
@@ -109,8 +111,8 @@ public class ExpandZip implements FileTreeOperation {
         }
     }
 
-    public static class NoCloseInputStream extends FilterInputStream {
-        public NoCloseInputStream(InputStream delegate) {
+    private static class NoCloseInputStream extends FilterInputStream {
+        private NoCloseInputStream(InputStream delegate) {
             super(delegate);
         }
 
