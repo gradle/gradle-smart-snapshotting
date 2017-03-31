@@ -7,7 +7,6 @@ import org.gradle.snapshot.configuration.SnapshotterModifier;
 import org.gradle.snapshot.hashing.FileHasher;
 
 import java.io.File;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 public class Snapshotter {
@@ -25,12 +24,12 @@ public class Snapshotter {
         return fileTree
                 .flatMap(file -> context.getFileTreeOperations().stream()
                         .filter(op -> op.getFilePredicate().test(file) && op.getContextPredicate().test(context.getContextElements()))
-                        .findFirst().flatMap(
+                        .findFirst().map(
                                 fileTreeOperation -> {
                                     FileTreeOperation operation = fileTreeOperation.getOperation();
-                                    return Optional.of(operation.collect(snapshot(operation.expand(file),
+                                    return operation.collect(snapshot(operation.expand(file),
                                             context.addContext(new ContextElement(operation.getClass()))),
-                                            file));
+                                            file);
                                 }
                         ).orElseGet(() -> Stream.of(snapshotFile(file, context))));
     }
