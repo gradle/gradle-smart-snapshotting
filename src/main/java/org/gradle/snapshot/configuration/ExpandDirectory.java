@@ -11,6 +11,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
+import static org.gradle.snapshot.FileSnapshot.FILE_SNAPSHOT_COMPARATOR;
+
 public class ExpandDirectory implements FileTreeOperation {
     @Override
     public Stream<SnapshottableFile> expand(SnapshottableFile file) {
@@ -24,6 +26,6 @@ public class ExpandDirectory implements FileTreeOperation {
 
     @Override
     public Stream<FileSnapshot> collect(Stream<FileSnapshot> snapshots, SnapshottableFile file) {
-        return snapshots.sorted();
+        return snapshots.sorted(FILE_SNAPSHOT_COMPARATOR);
     }
 }

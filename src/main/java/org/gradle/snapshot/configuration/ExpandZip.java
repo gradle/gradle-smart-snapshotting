@@ -20,6 +20,8 @@ import java.util.stream.StreamSupport;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import static org.gradle.snapshot.FileSnapshot.FILE_SNAPSHOT_COMPARATOR;
+
 public class ExpandZip implements FileTreeOperation {
     public Stream<SnapshottableFile> expand(SnapshottableFile file) {
         ZipInputStream zipInputStream = new ZipInputStream(file.open());
@@ -39,7 +41,7 @@ public class ExpandZip implements FileTreeOperation {
     @Override
     public Stream<FileSnapshot> collect(Stream<FileSnapshot> snapshots, SnapshottableFile file) {
         try (Stream<FileSnapshot> closableSnapshots = snapshots) {
-            return Stream.of(closableSnapshots.sorted().collect(collector(file)));
+            return Stream.of(closableSnapshots.sorted(FILE_SNAPSHOT_COMPARATOR).collect(collector(file)));
         }
     }
 
