@@ -17,10 +17,10 @@ public class CachingSnapshotOperation implements SingleFileSnapshotOperation {
     public CachingSnapshotOperation(
             SingleFileSnapshotOperation delegate,
             Map<HashCode, HashCode> cache,
-            SnapshotterContext cacheKeyContext) {
+            SnapshotOperationBindings cacheKeyBindings) {
         this.delegate = delegate;
         this.cache = cache;
-        this.cacheKeyContext = cacheKeyContext;
+        this.cacheKeyContext = new SnapshotterContext().withBindings(cacheKeyBindings);
     }
 
     @Override

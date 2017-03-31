@@ -3,42 +3,30 @@ package org.gradle.snapshot.configuration;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class SnapshotterContext {
-    private final List<SnapshotterModifier> snapshotOperations;
+    private final SnapshotOperationBindings bindings;
     private final List<ContextElement> contextElements;
 
     public SnapshotterContext() {
-        this(ImmutableList.of(), ImmutableList.of());
+        this(new SnapshotOperationBindings(), ImmutableList.of());
     }
 
-    private SnapshotterContext(List<SnapshotterModifier> snapshotOperations, List<ContextElement> contextElements) {
-        this.snapshotOperations = snapshotOperations;
+    private SnapshotterContext(SnapshotOperationBindings bindings, List<ContextElement> contextElements) {
+        this.bindings = bindings;
         this.contextElements = contextElements;
     }
 
-    public List<SnapshotterModifier> getSnapshotOperations() {
-        return snapshotOperations;
+    public SnapshotOperationBindings getBindings() {
+        return bindings;
     }
 
-    public SnapshotterContext withSnapshotOperations(Iterable<SnapshotterModifier> operations) {
-        return new SnapshotterContext(ImmutableList.copyOf(operations), contextElements);
-    }
-
-    public SnapshotterContext withSnapshotOperation(SnapshotterModifier operation) {
-        return withSnapshotOperations(ImmutableList.<SnapshotterModifier>builder().addAll(snapshotOperations).add(operation).build());
-    }
-
-    public SnapshotterContext withoutSnapshotOperation(SnapshotOperation operation) {
-        return withSnapshotOperations(
-                snapshotOperations.stream()
-                        .filter(modifier -> !modifier.getOperation().equals(operation))
-                        .collect(Collectors.toList()));
+    public SnapshotterContext withBindings(SnapshotOperationBindings bindings) {
+        return new SnapshotterContext(bindings, contextElements);
     }
 
     public SnapshotterContext addContextElement(ContextElement element) {
-        return new SnapshotterContext(snapshotOperations,
+        return new SnapshotterContext(bindings,
                 ImmutableList.<ContextElement>builder().addAll(contextElements).add(element).build());
     }
 

@@ -10,7 +10,7 @@ import java.util.stream.Stream;
 public interface FileSnapshotOperation extends SnapshotOperation {
     @Override
     default Stream<FileSnapshot> snapshot(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter) {
-        return snapshotter.snapshot(Stream.of(transform(file)), context.withoutSnapshotOperation(this));
+        return snapshotter.snapshot(Stream.of(transform(file)), context.withBindings(context.getBindings().withoutSnapshotOperation(this)));
     }
 
     SnapshottableFile transform(SnapshottableFile snapshottableFile);
