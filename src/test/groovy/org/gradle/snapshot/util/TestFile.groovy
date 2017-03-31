@@ -100,6 +100,11 @@ class TestFile extends File {
         return zipFile
     }
 
+    TestFile makeOlder() {
+        lastModified = lastModified() - 2000
+        return this
+    }
+
     private static ZipEntry zipEntry(File file) {
         def name = file.getName()
         def entry = new ZipEntry(name + (file.isDirectory() ? '/' : ''))

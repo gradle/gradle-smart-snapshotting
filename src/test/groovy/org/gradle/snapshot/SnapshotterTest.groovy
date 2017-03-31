@@ -94,7 +94,9 @@ class SnapshotterTest extends AbstractSnapshotterTest {
     }
 
     def "can ignore files"() {
-        context = context.withSnapshotOperation(modifier({ file, ctx -> file.path.contains('ignored') }, new Filter()))
+        context = context.withSnapshotOperation(modifier(
+                { file, ctx -> file.path.contains('ignored') },
+                new Filter()))
 
         def firstFile = file("my-name.txt")
         firstFile.text = "I am snapshotted"
@@ -129,7 +131,7 @@ class SnapshotterTest extends AbstractSnapshotterTest {
         def ignoredFile = file(zipContents, "ignoredFile.txt")
         ignoredFile.text = "Not snapshotted"
 
-        def zipFile = zipContents.createZip(file("notIgnoredZipFile.zip"))
+        def zipFile = zipContents.createZip(file("not-ignoredZipFile.zip"))
 
         when:
         List<FileSnapshot> result = snapshotFiles(zipFile)
@@ -141,7 +143,7 @@ class SnapshotterTest extends AbstractSnapshotterTest {
         when:
         ignoredFile << "I am also ignored."
         zipFile.delete()
-        zipContents.createZip(file("notIgnoredZipFile.zip"))
+        zipContents.createZip(zipFile)
 
         result = snapshotFiles(zipFile)
 
