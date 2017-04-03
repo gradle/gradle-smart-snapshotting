@@ -1,5 +1,6 @@
 package org.gradle.snapshot.configuration;
 
+import ix.Ix;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.PhysicalFile;
 import org.gradle.snapshot.SnapshottableFile;
@@ -9,23 +10,26 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.stream.Stream;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
 import static org.gradle.snapshot.FileSnapshot.FILE_SNAPSHOT_COMPARATOR;
 
 public class ExpandDirectory implements FileTreeOperation {
     @Override
-    public Stream<SnapshottableFile> expand(SnapshottableFile file) {
+    public Ix<SnapshottableFile> expand(SnapshottableFile file) {
         try {
-            Stream<Path> paths = Files.walk(Paths.get(file.getPath()));
-            return paths.map(path -> new PhysicalFile(path.toFile()));
+            // We are still using the Stream API here, but that should be fine since we will replace
+            // this call by our own file walking anyway.
+            Collection<Path> paths = Files.walk(Paths.get(file.getPath())).collect(Collectors.toList());
+            return Ix.from(paths).map(path -> new PhysicalFile(path.toFile()));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
     @Override
-    public Stream<FileSnapshot> collect(Stream<FileSnapshot> snapshots, SnapshottableFile file) {
-        return snapshots.sorted(FILE_SNAPSHOT_COMPARATOR);
+    public Ix<FileSnapshot> collect(Ix<FileSnapshot> snapshots, SnapshottableFile file) {
+        return snapshots.orderBy(FILE_SNAPSHOT_COMPARATOR);
     }
 }

@@ -1,14 +1,12 @@
 package org.gradle.snapshot
 
+import ix.Ix
 import org.gradle.snapshot.configuration.SnapshotOperationBindings
 import org.gradle.snapshot.hashing.FileHasher
 import org.gradle.snapshot.util.TestFile
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
-
-import java.util.stream.Collectors
-import java.util.stream.Stream
 
 class AbstractSnapshotterTest extends Specification {
     @Rule
@@ -21,6 +19,6 @@ class AbstractSnapshotterTest extends Specification {
     }
 
     List<FileSnapshot> snapshotFiles(File... files) {
-        snapshotter.snapshotFiles(Stream.<File> of(files), bindings).collect(Collectors.toList())
+        snapshotter.snapshotFiles(Ix.<File> fromArray(files), bindings).toList()
     }
 }

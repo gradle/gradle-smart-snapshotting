@@ -1,6 +1,7 @@
 package org.gradle.snapshot.configuration;
 
 import com.google.common.collect.ImmutableSortedMap;
+import ix.Ix;
 import org.gradle.snapshot.FileType;
 import org.gradle.snapshot.SnapshottableFile;
 
@@ -11,7 +12,6 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.Properties;
-import java.util.stream.Collectors;
 
 public class InterpretPropertyFile implements FileSnapshotOperation {
     @Override
@@ -41,8 +41,8 @@ public class InterpretPropertyFile implements FileSnapshotOperation {
                 String name = (String) names.nextElement();
                 builder.put(name, properties.getProperty(name));
             }
-            String joined = builder.build().entrySet().stream().map(entry -> entry.getKey() + "=" + entry.getValue())
-                    .collect(Collectors.joining("\n"));
+            String joined = Ix.from(builder.build().entrySet()).map(entry -> entry.getKey() + "=" + entry.getValue())
+                    .join("\n").first();
             return new ByteArrayInputStream(joined.getBytes(StandardCharsets.UTF_8));
         }
 
