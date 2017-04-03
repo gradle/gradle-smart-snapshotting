@@ -12,14 +12,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.Properties;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class InterpretPropertyFile implements FileSnapshotOperation {
+public class InterpretPropertyFile implements TransformOperation {
     @Override
-    public SnapshottableFile transform(SnapshottableFile snapshottableFile) {
+    public Stream<SnapshottableFile> transform(SnapshottableFile snapshottableFile) {
         try (InputStream inputStream = snapshottableFile.open()) {
             Properties properties = new Properties();
             properties.load(inputStream);
-            return new PropertyFile(snapshottableFile.getPath(), properties);
+            return Stream.of(new PropertyFile(snapshottableFile.getPath(), properties));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

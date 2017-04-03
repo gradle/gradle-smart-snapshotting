@@ -1,18 +1,12 @@
 package org.gradle.snapshot.configuration;
 
-import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.SnapshottableFile;
 
 import java.util.stream.Stream;
 
-public class Filter implements FileTreeOperation {
+public class Filter implements TransformOperation {
     @Override
-    public Stream<SnapshottableFile> expand(SnapshottableFile file) {
+    public Stream<SnapshottableFile> transform(SnapshottableFile file) {
         return Stream.empty();
-    }
-
-    @Override
-    public Stream<FileSnapshot> collect(Stream<FileSnapshot> snapshots, SnapshottableFile file) {
-        return snapshots;
     }
 }

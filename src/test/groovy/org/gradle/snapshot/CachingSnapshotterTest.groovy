@@ -5,9 +5,9 @@ import com.google.common.hash.Hashing
 import org.gradle.snapshot.configuration.CachingSnapshotOperation
 import org.gradle.snapshot.configuration.ExpandZip
 import org.gradle.snapshot.configuration.Filter
-import org.gradle.snapshot.configuration.SnapshotOperationBindings
+import org.gradle.snapshot.configuration.SnapshotterConfiguration
 
-import static org.gradle.snapshot.configuration.DefaultSnapshotOperationBinding.binding
+import static org.gradle.snapshot.configuration.DefaultOperationBinding.binding
 import static org.gradle.snapshot.configuration.ZipFileMatcher.IS_ZIP_FILE
 
 class CachingSnapshotterTest extends AbstractSnapshotterTest {
@@ -15,8 +15,8 @@ class CachingSnapshotterTest extends AbstractSnapshotterTest {
     def "cache per file"() {
         Map<HashCode, HashCode> cache = new HashMap<>()
 
-        bindings = bindings.withBinding(
-                binding(new CachingSnapshotOperation(new ExpandZip(), cache, new SnapshotOperationBindings()),
+        configuration = configuration.withSnapshotOperation(
+                binding(new CachingSnapshotOperation(new ExpandZip(), cache, new SnapshotterConfiguration()),
                         IS_ZIP_FILE
                 )
         )
@@ -65,11 +65,11 @@ class CachingSnapshotterTest extends AbstractSnapshotterTest {
     def "cache zip file based on expanded zip file"() {
         Map<HashCode, HashCode> cache = new HashMap<>()
 
-        bindings = bindings.withBinding(
+        configuration = configuration.withSnapshotOperation(
                 binding(new CachingSnapshotOperation(new ExpandZip(), cache,
-                        new SnapshotOperationBindings().withBinding(binding(new ExpandZip(), IS_ZIP_FILE))
+                        new SnapshotterConfiguration().withSnapshotOperation(binding(new ExpandZip(), IS_ZIP_FILE))
                 ), IS_ZIP_FILE)
-        ).withBinding(
+        ).withTransform(
                 binding(new Filter(), { file, context -> file.path.endsWith('.properties') })
         )
         def zipContents = file('zipContents').create {

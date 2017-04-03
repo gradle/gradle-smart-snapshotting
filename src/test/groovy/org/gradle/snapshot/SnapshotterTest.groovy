@@ -10,7 +10,7 @@ import org.gradle.snapshot.util.TestFile
 
 import java.nio.file.Paths
 
-import static org.gradle.snapshot.configuration.DefaultSnapshotOperationBinding.binding
+import static org.gradle.snapshot.configuration.DefaultOperationBinding.binding
 import static org.gradle.snapshot.configuration.ZipFileMatcher.IS_ZIP_FILE
 
 class SnapshotterTest extends AbstractSnapshotterTest {
@@ -40,7 +40,7 @@ class SnapshotterTest extends AbstractSnapshotterTest {
     }
 
     def "can look into zip files"() {
-        bindings = bindings.withBinding(binding(new ExpandZip(), IS_ZIP_FILE))
+        configuration = configuration.withSnapshotOperation(binding(new ExpandZip(), IS_ZIP_FILE))
 
         def zipFile = file('zipContents').create {
             file('firstFile.txt').text = "Some text"
@@ -64,7 +64,7 @@ class SnapshotterTest extends AbstractSnapshotterTest {
     }
 
     def "can look into zip files in zip files"() {
-        bindings = bindings.withBinding(binding(new ExpandZip(), IS_ZIP_FILE))
+        configuration = configuration.withSnapshotOperation(binding(new ExpandZip(), IS_ZIP_FILE))
 
         def zipInZipContents = file('zipInZipContents').create {
             file("firstFileInZip.txt").text = "Some text in zip"
@@ -94,7 +94,7 @@ class SnapshotterTest extends AbstractSnapshotterTest {
     }
 
     def "can ignore files"() {
-        bindings = bindings.withBinding(binding(new Filter(),
+        configuration = configuration.withTransform(binding(new Filter(),
                 { file, ctx -> file.path.contains('ignored') }
         ))
 
@@ -121,9 +121,9 @@ class SnapshotterTest extends AbstractSnapshotterTest {
     }
 
     def "can ignore files in zip"() {
-        bindings = bindings
-                .withBinding(binding(new ExpandZip(), IS_ZIP_FILE))
-                .withBinding(binding(new Filter(), { file, ctx -> file.path.contains('ignored') }))
+        configuration = configuration
+                .withSnapshotOperation(binding(new ExpandZip(), IS_ZIP_FILE))
+                .withTransform(binding(new Filter(), { file, ctx -> file.path.contains('ignored') }))
 
         def zipContents = file('zipContents').create {
             file("firstFileInZip.txt").text = "Some text in zip"
@@ -131,7 +131,7 @@ class SnapshotterTest extends AbstractSnapshotterTest {
         def ignoredFile = file(zipContents, "ignoredFile.txt")
         ignoredFile.text = "Not snapshotted"
 
-        def zipFile = zipContents.createZip(file("not-ignoredZipFile.zip"))
+        def zipFile = zipContents.createZip(file("zipFile.zip"))
 
         when:
         List<FileSnapshot> result = snapshotFiles(zipFile)
@@ -153,7 +153,7 @@ class SnapshotterTest extends AbstractSnapshotterTest {
     }
 
     def "can interpret property files"() {
-        bindings = bindings.withBinding(binding(new InterpretPropertyFile(), { file, ctx ->
+        configuration = configuration.withTransform(binding(new InterpretPropertyFile(), { file, ctx ->
             file.path.endsWith('.properties')
         }))
 
@@ -187,7 +187,7 @@ class SnapshotterTest extends AbstractSnapshotterTest {
     }
 
     def "expands directories"() {
-        bindings = bindings.withBinding(
+        configuration = configuration.withTransform(
                 binding(new ExpandDirectory(),
                         { file, ctx -> ctx.isEmpty() && file.type == FileType.DIRECTORY }
                 ))
