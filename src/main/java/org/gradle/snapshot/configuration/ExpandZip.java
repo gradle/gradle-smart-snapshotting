@@ -2,7 +2,7 @@ package org.gradle.snapshot.configuration;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import ix.Ix;
+import io.reactivex.Observable;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.FileType;
 import org.gradle.snapshot.SnapshottableFile;
@@ -21,15 +21,15 @@ import static org.gradle.snapshot.FileSnapshot.FILE_SNAPSHOT_COMPARATOR;
 public class ExpandZip implements SingleFileSnapshotOperation {
     @Override
     public FileSnapshot snapshotSingleFile(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter) {
-        Ix<FileSnapshot> expandedSnapshots = snapshotter.snapshot(
+        Observable<FileSnapshot> expandedSnapshots = snapshotter.snapshot(
                 expand(file),
                 context.addContextElement(new ContextElement(this.getClass()))
         );
         return collect(expandedSnapshots, file);
     }
 
-    private Ix<SnapshottableFile> expand(SnapshottableFile file) {
-        return Ix.generate(
+    private Observable<SnapshottableFile> expand(SnapshottableFile file) {
+        return Observable.generate(
                 () -> new ZipInputStream(file.open()),
                 (state, emitter) -> {
                     try {
@@ -52,8 +52,8 @@ public class ExpandZip implements SingleFileSnapshotOperation {
                 });
     }
 
-    private FileSnapshot collect(Ix<FileSnapshot> snapshots, SnapshottableFile file) {
-        return combineHashes(file, snapshots.orderBy(FILE_SNAPSHOT_COMPARATOR).toList());
+    private FileSnapshot collect(Observable<FileSnapshot> snapshots, SnapshottableFile file) {
+        return combineHashes(file, snapshots.sorted(FILE_SNAPSHOT_COMPARATOR).toList().blockingGet());
     }
 
     private FileSnapshot combineHashes(SnapshottableFile root, List<FileSnapshot> fileSnapshots) {

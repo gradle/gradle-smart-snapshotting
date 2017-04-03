@@ -1,7 +1,7 @@
 package org.gradle.snapshot.configuration;
 
 import com.google.common.hash.HashCode;
-import ix.Ix;
+import io.reactivex.Observable;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.SnapshottableFile;
 import org.gradle.snapshot.Snapshotter;
@@ -25,7 +25,7 @@ public class CachingSnapshotOperation implements SingleFileSnapshotOperation {
 
     @Override
     public FileSnapshot snapshotSingleFile(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter) {
-        Optional<FileSnapshot> snapshotForCacheKey = Optional.ofNullable(snapshotter.snapshot(Ix.fromArray(file), cacheKeyContext).first(null));
+        Optional<FileSnapshot> snapshotForCacheKey = Optional.ofNullable(snapshotter.snapshot(Observable.fromArray(file), cacheKeyContext).firstElement().blockingGet());
         Optional<FileSnapshot> loadedFromCache = snapshotForCacheKey.flatMap(this::loadFromCache);
 
         return loadedFromCache.orElseGet(() ->

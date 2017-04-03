@@ -1,6 +1,6 @@
 package org.gradle.snapshot.configuration;
 
-import ix.Ix;
+import io.reactivex.Observable;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.SnapshottableFile;
 import org.gradle.snapshot.Snapshotter;
@@ -9,8 +9,8 @@ import org.gradle.snapshot.Snapshotter;
 public interface SingleFileSnapshotOperation extends SnapshotOperation {
 
     @Override
-    default Ix<FileSnapshot> snapshot(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter) {
-        return Ix.fromArray(snapshotSingleFile(file, context, snapshotter));
+    default Observable<FileSnapshot> snapshot(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter) {
+        return Observable.fromArray(snapshotSingleFile(file, context, snapshotter));
     }
 
     FileSnapshot snapshotSingleFile(SnapshottableFile file, SnapshotterContext context, Snapshotter snapshotter);

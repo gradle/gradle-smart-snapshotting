@@ -1,17 +1,17 @@
 package org.gradle.snapshot.configuration;
 
-import ix.Ix;
+import io.reactivex.Observable;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.SnapshottableFile;
 
 public class Filter implements FileTreeOperation {
     @Override
-    public Ix<SnapshottableFile> expand(SnapshottableFile file) {
-        return Ix.empty();
+    public Observable<SnapshottableFile> expand(SnapshottableFile file) {
+        return Observable.empty();
     }
 
     @Override
-    public Ix<FileSnapshot> collect(Ix<FileSnapshot> snapshots, SnapshottableFile file) {
+    public Observable<FileSnapshot> collect(Observable<FileSnapshot> snapshots, SnapshottableFile file) {
         return snapshots;
     }
 }

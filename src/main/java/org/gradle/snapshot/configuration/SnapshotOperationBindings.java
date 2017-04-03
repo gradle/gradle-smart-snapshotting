@@ -1,7 +1,7 @@
 package org.gradle.snapshot.configuration;
 
 import com.google.common.collect.ImmutableList;
-import ix.Ix;
+import io.reactivex.Observable;
 
 import java.util.AbstractList;
 import java.util.List;
@@ -31,9 +31,9 @@ public class SnapshotOperationBindings extends AbstractList<SnapshotOperationBin
 
     public SnapshotOperationBindings withoutSnapshotOperation(SnapshotOperation operation) {
         return withBindings(
-                Ix.from(bindings)
+                Observable.fromIterable(bindings)
                         .filter(modifier -> !modifier.getOperation().equals(operation))
-                        .toList());
+                        .toList().blockingGet());
     }
 
     @Override

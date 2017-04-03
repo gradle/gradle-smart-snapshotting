@@ -1,6 +1,6 @@
 package org.gradle.snapshot
 
-import ix.Ix
+import io.reactivex.Observable
 import org.gradle.snapshot.configuration.SnapshotOperationBindings
 import org.gradle.snapshot.hashing.FileHasher
 import org.gradle.snapshot.util.TestFile
@@ -19,6 +19,6 @@ class AbstractSnapshotterTest extends Specification {
     }
 
     List<FileSnapshot> snapshotFiles(File... files) {
-        snapshotter.snapshotFiles(Ix.<File> fromArray(files), bindings).toList()
+        snapshotter.snapshotFiles(Observable.<File> fromArray(files), bindings).toList().blockingGet()
     }
 }

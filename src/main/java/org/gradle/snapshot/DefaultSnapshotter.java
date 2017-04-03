@@ -1,6 +1,6 @@
 package org.gradle.snapshot;
 
-import ix.Ix;
+import io.reactivex.Observable;
 import org.gradle.snapshot.configuration.SnapshotOperation;
 import org.gradle.snapshot.configuration.SnapshotOperationBindings;
 import org.gradle.snapshot.configuration.SnapshotterContext;
@@ -16,22 +16,22 @@ public class DefaultSnapshotter implements Snapshotter {
         this.hasher = hasher;
     }
 
-    public Ix<FileSnapshot> snapshotFiles(Ix<? extends File> fileTree, SnapshotOperationBindings bindings) {
+    public Observable<FileSnapshot> snapshotFiles(Observable<? extends File> fileTree, SnapshotOperationBindings bindings) {
         return snapshot(fileTree.map(PhysicalFile::new), new SnapshotterContext().withBindings(bindings));
     }
 
-    public Ix<FileSnapshot> snapshot(Ix<SnapshottableFile> fileTree, SnapshotterContext context) {
+    public Observable<FileSnapshot> snapshot(Observable<SnapshottableFile> fileTree, SnapshotterContext context) {
         return fileTree
-                .flatMap(file -> Ix.from(context.getBindings())
+                .flatMap(file -> Observable.fromIterable(context.getBindings())
                         .filter(op -> op.getBoundTo().test(file, context.getContextElements()))
-                        .map(Optional::of).first(Optional.empty()).map(
+                        .map(Optional::of).firstElement().blockingGet(Optional.empty()).map(
                                 fileTreeOperation -> {
                                     SnapshotOperation operation = fileTreeOperation.getOperation();
                                     return operation.snapshot(file,
                                             context,
                                             this);
                                 }
-                        ).orElseGet(() -> Ix.fromArray(snapshotFile(file))));
+                        ).orElseGet(() -> Observable.fromArray(snapshotFile(file))));
     }
 
     private FileSnapshot snapshotFile(SnapshottableFile file) {
