@@ -21,6 +21,7 @@ sourceCompatibility = 1.8
 
 dependencies {
     implementation 'com.google.guava:guava:21.0'
+    implementation 'com.github.akarnokd:ixjava:1.0.0-RC5'
     testCompile 'org.codehaus.groovy:groovy:2.4.10'
     testCompile 'org.spockframework:spock-core:1.1-groovy-2.4-rc-3'
 }
