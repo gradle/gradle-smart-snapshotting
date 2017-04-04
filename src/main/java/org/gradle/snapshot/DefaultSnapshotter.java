@@ -40,7 +40,7 @@ public class DefaultSnapshotter implements Snapshotter {
 
         Stream<SnapshottableFile> transformedFiles = transforms.reduce(
                 Stream.of(file),
-                (snFile, op) -> snFile.flatMap(op::transform),
+                (files, op) -> files.flatMap(op::transform),
                 Stream::concat);
 
         List<SnapshotOperation> operations = context.getConfiguration().getSnapshotOperationBindings().stream()
