@@ -1,9 +1,12 @@
-package org.gradle.snapshot.configuration;
+package org.gradle.snapshot.opeartion.snapshot;
 
 import com.google.common.hash.HashCode;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.SnapshottableFile;
 import org.gradle.snapshot.Snapshotter;
+import org.gradle.snapshot.configuration.SingleFileSnapshotOperation;
+import org.gradle.snapshot.configuration.SnapshotterConfiguration;
+import org.gradle.snapshot.configuration.SnapshotterContext;
 
 import java.util.Map;
 import java.util.Optional;

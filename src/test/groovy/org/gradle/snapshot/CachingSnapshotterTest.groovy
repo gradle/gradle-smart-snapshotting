@@ -2,9 +2,9 @@ package org.gradle.snapshot
 
 import com.google.common.hash.HashCode
 import com.google.common.hash.Hashing
-import org.gradle.snapshot.configuration.CachingSnapshotOperation
-import org.gradle.snapshot.configuration.ExpandZip
-import org.gradle.snapshot.configuration.Filter
+import org.gradle.snapshot.opeartion.snapshot.CachingSnapshotOperation
+import org.gradle.snapshot.opeartion.transform.ExpandZip
+import org.gradle.snapshot.opeartion.transform.Filter
 import org.gradle.snapshot.configuration.SnapshotterConfiguration
 
 import static org.gradle.snapshot.configuration.DefaultOperationBinding.binding

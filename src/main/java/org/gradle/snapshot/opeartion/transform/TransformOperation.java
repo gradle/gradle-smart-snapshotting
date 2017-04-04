@@ -1,4 +1,4 @@
-package org.gradle.snapshot.configuration;
+package org.gradle.snapshot.opeartion.transform;
 
 import org.gradle.snapshot.SnapshottableFile;
 

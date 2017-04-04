@@ -1,4 +1,4 @@
-package org.gradle.snapshot.configuration;
+package org.gradle.snapshot.opeartion.transform;
 
 import com.google.common.collect.ImmutableSortedMap;
 import org.gradle.snapshot.FileType;

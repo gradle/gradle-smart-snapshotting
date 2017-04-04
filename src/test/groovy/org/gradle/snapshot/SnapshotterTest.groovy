@@ -1,10 +1,10 @@
 package org.gradle.snapshot
 
 import com.google.common.collect.Iterables
-import org.gradle.snapshot.configuration.ExpandDirectory
-import org.gradle.snapshot.configuration.ExpandZip
-import org.gradle.snapshot.configuration.Filter
-import org.gradle.snapshot.configuration.InterpretPropertyFile
+import org.gradle.snapshot.opeartion.transform.ExpandDirectory
+import org.gradle.snapshot.opeartion.transform.ExpandZip
+import org.gradle.snapshot.opeartion.transform.Filter
+import org.gradle.snapshot.opeartion.transform.InterpretPropertyFile
 import org.gradle.snapshot.hashing.FileHasher
 import org.gradle.snapshot.util.TestFile
 

@@ -2,10 +2,10 @@ package org.gradle.snapshot;
 
 import com.google.common.base.Preconditions;
 import org.gradle.snapshot.configuration.OperationBinding;
-import org.gradle.snapshot.configuration.SnapshotOperation;
+import org.gradle.snapshot.opeartion.snapshot.SnapshotOperation;
 import org.gradle.snapshot.configuration.SnapshotterConfiguration;
 import org.gradle.snapshot.configuration.SnapshotterContext;
-import org.gradle.snapshot.configuration.TransformOperation;
+import org.gradle.snapshot.opeartion.transform.TransformOperation;
 import org.gradle.snapshot.hashing.FileHasher;
 
 import java.io.File;
@@ -50,7 +50,7 @@ public class DefaultSnapshotter implements Snapshotter {
 
         Preconditions.checkState(
                 operations.size() <= 1,
-                "It is not possible to have more than one snapshotting operation per file.");
+                "It is not possible to have more than one snapshotting transform per file.");
 
         if (operations.isEmpty()) {
             return transformedFiles.map(this::snapshotFile);
