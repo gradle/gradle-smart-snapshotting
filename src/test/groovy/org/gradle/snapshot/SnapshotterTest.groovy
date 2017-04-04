@@ -1,11 +1,11 @@
 package org.gradle.snapshot
 
 import com.google.common.collect.Iterables
-import org.gradle.snapshot.opeartion.transform.ExpandDirectory
-import org.gradle.snapshot.opeartion.transform.ExpandZip
-import org.gradle.snapshot.opeartion.transform.Filter
-import org.gradle.snapshot.opeartion.transform.InterpretPropertyFile
 import org.gradle.snapshot.hashing.FileHasher
+import org.gradle.snapshot.operation.transform.ExpandDirectory
+import org.gradle.snapshot.operation.transform.ExpandZip
+import org.gradle.snapshot.operation.transform.Filter
+import org.gradle.snapshot.operation.transform.InterpretPropertyFile
 import org.gradle.snapshot.util.TestFile
 
 import java.nio.file.Paths

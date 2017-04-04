@@ -1,4 +1,4 @@
-package org.gradle.snapshot.opeartion.transform;
+package org.gradle.snapshot.operation.transform;
 
 import org.gradle.snapshot.PhysicalFile;
 import org.gradle.snapshot.SnapshottableFile;

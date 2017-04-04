@@ -2,10 +2,10 @@ package org.gradle.snapshot
 
 import com.google.common.hash.HashCode
 import com.google.common.hash.Hashing
-import org.gradle.snapshot.opeartion.snapshot.CachingSnapshotOperation
-import org.gradle.snapshot.opeartion.transform.ExpandZip
-import org.gradle.snapshot.opeartion.transform.Filter
 import org.gradle.snapshot.configuration.SnapshotterConfiguration
+import org.gradle.snapshot.operation.snapshot.CachingSnapshotOperation
+import org.gradle.snapshot.operation.transform.ExpandZip
+import org.gradle.snapshot.operation.transform.Filter
 
 import static org.gradle.snapshot.configuration.DefaultOperationBinding.binding
 import static org.gradle.snapshot.configuration.ZipFileMatcher.IS_ZIP_FILE

@@ -1,8 +1,8 @@
 package org.gradle.snapshot.configuration;
 
 import org.gradle.snapshot.SnapshottableFile;
-import org.gradle.snapshot.opeartion.snapshot.SnapshotOperation;
-import org.gradle.snapshot.opeartion.transform.TransformOperation;
+import org.gradle.snapshot.operation.snapshot.SnapshotOperation;
+import org.gradle.snapshot.operation.transform.TransformOperation;
 
 import java.util.List;
 import java.util.function.BiPredicate;

@@ -1,4 +1,4 @@
-package org.gradle.snapshot.opeartion.snapshot;
+package org.gradle.snapshot.operation.snapshot;
 
 import com.google.common.hash.HashCode;
 import org.gradle.snapshot.FileSnapshot;

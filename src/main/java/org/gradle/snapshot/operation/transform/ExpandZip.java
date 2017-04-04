@@ -1,4 +1,4 @@
-package org.gradle.snapshot.opeartion.transform;
+package org.gradle.snapshot.operation.transform;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;

@@ -3,7 +3,7 @@ package org.gradle.snapshot.configuration;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.SnapshottableFile;
 import org.gradle.snapshot.Snapshotter;
-import org.gradle.snapshot.opeartion.snapshot.SnapshotOperation;
+import org.gradle.snapshot.operation.snapshot.SnapshotOperation;
 
 import java.util.stream.Stream;
 

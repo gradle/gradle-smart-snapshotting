@@ -2,11 +2,11 @@ package org.gradle.snapshot;
 
 import com.google.common.base.Preconditions;
 import org.gradle.snapshot.configuration.OperationBinding;
-import org.gradle.snapshot.opeartion.snapshot.SnapshotOperation;
 import org.gradle.snapshot.configuration.SnapshotterConfiguration;
 import org.gradle.snapshot.configuration.SnapshotterContext;
-import org.gradle.snapshot.opeartion.transform.TransformOperation;
 import org.gradle.snapshot.hashing.FileHasher;
+import org.gradle.snapshot.operation.snapshot.SnapshotOperation;
+import org.gradle.snapshot.operation.transform.TransformOperation;
 
 import java.io.File;
 import java.util.List;
