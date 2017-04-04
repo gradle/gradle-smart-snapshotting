@@ -2,8 +2,8 @@ package org.gradle.snapshot
 
 import com.google.common.collect.Iterables
 import org.gradle.snapshot.hashing.FileHasher
+import org.gradle.snapshot.operation.snapshot.ExpandZip
 import org.gradle.snapshot.operation.transform.ExpandDirectory
-import org.gradle.snapshot.operation.transform.ExpandZip
 import org.gradle.snapshot.operation.transform.Filter
 import org.gradle.snapshot.operation.transform.InterpretPropertyFile
 import org.gradle.snapshot.util.TestFile

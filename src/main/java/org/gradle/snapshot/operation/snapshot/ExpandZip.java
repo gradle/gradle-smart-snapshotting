@@ -1,4 +1,4 @@
-package org.gradle.snapshot.operation.transform;
+package org.gradle.snapshot.operation.snapshot;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -7,7 +7,6 @@ import org.gradle.snapshot.FileType;
 import org.gradle.snapshot.SnapshottableFile;
 import org.gradle.snapshot.Snapshotter;
 import org.gradle.snapshot.configuration.ContextElement;
-import org.gradle.snapshot.configuration.SingleFileSnapshotOperation;
 import org.gradle.snapshot.configuration.SnapshotterContext;
 
 import java.io.FilterInputStream;

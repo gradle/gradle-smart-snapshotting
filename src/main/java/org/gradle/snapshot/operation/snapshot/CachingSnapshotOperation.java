@@ -4,7 +4,6 @@ import com.google.common.hash.HashCode;
 import org.gradle.snapshot.FileSnapshot;
 import org.gradle.snapshot.SnapshottableFile;
 import org.gradle.snapshot.Snapshotter;
-import org.gradle.snapshot.configuration.SingleFileSnapshotOperation;
 import org.gradle.snapshot.configuration.SnapshotterConfiguration;
 import org.gradle.snapshot.configuration.SnapshotterContext;
 
