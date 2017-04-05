@@ -17,8 +17,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -44,7 +46,9 @@ public class Snapshotter2 {
 	}
 
 	public <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
-		process(files.stream().map(file -> new PhysicalFile(file.getName(), file)).collect(Collectors.toList()), context, rules);
+		process(files.stream()
+				.map(file -> Physical.of(file.getName(), file))
+				.collect(Collectors.toList()), context, rules);
 		return context;
 	}
 
@@ -52,7 +56,7 @@ public class Snapshotter2 {
 
 		ArrayDeque<Operation> queue = Queues.newArrayDeque();
 		SnapshotterState state = new SnapshotterState(rootContext, rules);
-		files.forEach((Fileish file) -> queue.push(new ApplyTo(file, rootContext)));
+		files.forEach((Fileish file) -> queue.addLast(new ApplyTo(file, rootContext)));
 
 		List<Operation> dependencies = Lists.newArrayList();
 
@@ -248,6 +252,45 @@ public class Snapshotter2 {
 		}
 	}
 
+	static class ProcessDirectory extends Operation {
+		private final PhysicalDirectory root;
+		private Iterator<File> files;
+
+		public ProcessDirectory(PhysicalDirectory root, Context context) {
+			super(context);
+			this.root = root;
+		}
+
+		@Override
+		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
+			File rootFile = root.getFile();
+			if (files == null) {
+				files = Files.walk(rootFile.toPath()).map(Path::toFile).iterator();
+			}
+
+			while (files.hasNext()) {
+				File file = files.next();
+
+				// Do not process the root file
+				if (file.equals(rootFile)) {
+					continue;
+				}
+				applyToAncestry(new StringBuilder(), rootFile, file, dependencies);
+				break;
+			}
+		}
+
+		private void applyToAncestry(StringBuilder path, File root, File file, List<Operation> dependencies) {
+			File parent = file.getParentFile();
+			if (!parent.equals(root)) {
+				applyToAncestry(path, root, parent, dependencies);
+				path.append('/');
+			}
+			path.append(file.getName());
+			dependencies.add(new ApplyTo(Physical.of(path.toString(), file)));
+		}
+	}
+
 	static class RuntimeClasspathContext extends AbstractContext {}
 
 	static class RuntimeClasspathEntryContext extends AbstractContext {
@@ -301,12 +344,29 @@ public class Snapshotter2 {
 		InputStream open() throws IOException;
 	}
 
-	static class PhysicalFile extends AbstractFileish implements FileishWithContents {
+	interface Physical extends Fileish {
+		File getFile();
+
+		static Physical of(String path, File file) {
+			if (file.isDirectory()) {
+				return new PhysicalDirectory(path, file);
+			} else {
+				return new PhysicalFile(path, file);
+			}
+		}
+	}
+
+	static class PhysicalFile extends AbstractFileish implements FileishWithContents, Physical {
 		private final File file;
 
 		public PhysicalFile(String path, File file) {
 			super(path);
 			this.file = file;
+		}
+
+		@Override
+		public File getFile() {
+			return file;
 		}
 
 		@Override
@@ -316,6 +376,20 @@ public class Snapshotter2 {
 			} catch (IOException e) {
 				throw new UncheckedIOException(e);
 			}
+		}
+	}
+
+	static class PhysicalDirectory extends AbstractFileish implements Physical, Directoryish {
+		private final File file;
+
+		public PhysicalDirectory(String path, File file) {
+			super(path);
+			this.file = file;
+		}
+
+		@Override
+		public File getFile() {
+			return file;
 		}
 	}
 

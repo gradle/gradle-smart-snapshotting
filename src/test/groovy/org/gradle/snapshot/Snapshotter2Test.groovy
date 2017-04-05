@@ -26,6 +26,13 @@ class Snapshotter2Test extends Specification {
                 dependencies.add(new Snapshotter2.ProcessZip(file, subContext))
             }
         })
+        .add(new Snapshotter2.Rule(Snapshotter2.PhysicalDirectory, Snapshotter2.RuntimeClasspathContext, null) {
+            @Override
+            void process(Snapshotter2.Fileish file, Snapshotter2.Context context, List<Snapshotter2.Operation> dependencies) throws IOException {
+                def subContext = context.subContext(file, Snapshotter2.RuntimeClasspathEntryContext)
+                dependencies.add(new Snapshotter2.ProcessDirectory(file as Snapshotter2.PhysicalDirectory, subContext))
+            }
+        })
         .add(new Snapshotter2.Rule(Snapshotter2.Directoryish, Snapshotter2.RuntimeClasspathEntryContext, null) {
             @Override
             void process(Snapshotter2.Fileish file, Snapshotter2.Context context, List dependencies) throws IOException {
@@ -44,13 +51,23 @@ class Snapshotter2Test extends Specification {
                 file('someOtherFile.log').text = "File in subdir"
             }
         }.createZip(file('library.jar'))
+        def classes = file('classes').create {
+            file('thirdFile.txt').text = "Third file"
+            file('fourthFile.txt').text = "Fourth file"
+            subdir {
+                file('build.log').text = "File in subdir"
+            }
+        }
 
         expect:
-        snapshot([zipFile], Snapshotter2.RuntimeClasspathContext, runtimeClasspathRules) == [
+        snapshot([zipFile, classes], Snapshotter2.RuntimeClasspathContext, runtimeClasspathRules) == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
                 "Snapshot taken: library.jar!subdir/someOtherFile.log - a9cca315f4b8650dccfa3d93284998ef",
-                "Folded: * - 7b367292a129829a58cca166652059d3",
+                "Snapshot taken: classes!fourthFile.txt - 6c99cb370b82c9c527320b35524213e6",
+                "Snapshot taken: classes!subdir/build.log - a9cca315f4b8650dccfa3d93284998ef",
+                "Snapshot taken: classes!thirdFile.txt - 3f1d3e7fb9620156f8e911fb90d89c42",
+                "Folded: * - a6fb5fc3061570f426ef599fa9b53a73",
         ]
     }
 
