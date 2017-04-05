@@ -90,7 +90,7 @@ class TestFile extends File {
     TestFile createZip(TestFile zipFile) throws FileNotFoundException {
         new ZipOutputStream(new FileOutputStream(zipFile)).withStream { zipOutputStream ->
             this.eachFileRecurse() { file ->
-                zipOutputStream.putNextEntry(zipEntry(file))
+                zipOutputStream.putNextEntry(zipEntry(this.toPath().relativize(file.toPath()).toString(), file))
                 if (!file.isDirectory()) {
                     Files.copy(file.toPath(), zipOutputStream)
                 }
@@ -105,9 +105,8 @@ class TestFile extends File {
         return this
     }
 
-    private static ZipEntry zipEntry(File file) {
-        def name = file.getName()
-        def entry = new ZipEntry(name + (file.isDirectory() ? '/' : ''))
+    private static ZipEntry zipEntry(String path, File file) {
+        def entry = new ZipEntry(path + (file.isDirectory() ? '/' : ''))
         entry.setTime(file.lastModified())
         return entry
     }
