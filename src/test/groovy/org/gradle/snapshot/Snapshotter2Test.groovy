@@ -19,10 +19,18 @@ class Snapshotter2Test extends Specification {
     }
 
     List<Snapshotter2.Rule> runtimeClasspathRules = ImmutableList.<Snapshotter2.Rule> builder()
-        .add(new Snapshotter2.AbstractContentRule<Snapshotter2.RuntimeClasspathContext>(Snapshotter2.RuntimeClasspathContext.class, Pattern.compile(".*\\.jar")) {
+        .add(new Snapshotter2.FileRule(Snapshotter2.RuntimeClasspathContext, Pattern.compile(".*\\.jar")) {
             @Override
-            protected List<Snapshotter2.Operation> processInternal(Snapshotter2.FileishWithContents file, Snapshotter2.Context context) throws IOException {
-                return [new Snapshotter2.Operation(new Snapshotter2.EnumerateZip(file), context.subContext(file, Snapshotter2.RuntimeClasspathEntryContext.class))]
+            protected void processInternal(Snapshotter2.FileishWithContents file, Snapshotter2.Context context, List<Snapshotter2.Operation> dependencies) throws IOException {
+                def subContext = context.subContext(file, Snapshotter2.RuntimeClasspathEntryContext)
+                dependencies.add(new Snapshotter2.ProcessZip(file, subContext))
+            }
+        })
+        .add(new Snapshotter2.Rule(Snapshotter2.Directoryish, Snapshotter2.RuntimeClasspathEntryContext, null) {
+            @Override
+            void process(Snapshotter2.Fileish file, Snapshotter2.Context context, List dependencies) throws IOException {
+                // Ignore empty directories inside classpath entries
+                println "Ignored empty dir $file.path"
             }
         })
         .add(new Snapshotter2.DefaultSnapshotRule(Snapshotter2.Context.class, null))
@@ -41,9 +49,8 @@ class Snapshotter2Test extends Specification {
         snapshot([zipFile], Snapshotter2.RuntimeClasspathContext, runtimeClasspathRules) == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
-                "Snapshot taken: library.jar!subdir/ - d41d8cd98f00b204e9800998ecf8427e",
                 "Snapshot taken: library.jar!subdir/someOtherFile.log - a9cca315f4b8650dccfa3d93284998ef",
-                "Folded: * - 8b104f76bd5356888630870e0e8fec79",
+                "Folded: * - 7b367292a129829a58cca166652059d3",
         ]
     }
 
@@ -59,12 +66,11 @@ class Snapshotter2Test extends Specification {
 
         def rules = ImmutableList.builder()
             .add(
-                new Snapshotter2.AbstractContentRule<Snapshotter2.RuntimeClasspathEntryContext>(Snapshotter2.RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
+                new Snapshotter2.FileRule(Snapshotter2.RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
                     @Override
-                    List<Snapshotter2.Operation> processInternal(Snapshotter2.FileishWithContents file, Snapshotter2.Context context) throws IOException {
+                    void processInternal(Snapshotter2.FileishWithContents file, Snapshotter2.Context context, List<Snapshotter2.Operation> dependencies) throws IOException {
                         // Do nothing with the file
                         println "Ignoring $file.path"
-                        return []
                     }
                 }
             )
@@ -76,8 +82,7 @@ class Snapshotter2Test extends Specification {
         snapshot([zipFile], Snapshotter2.RuntimeClasspathContext, rules) == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
-                "Snapshot taken: library.jar!subdir/ - d41d8cd98f00b204e9800998ecf8427e",
-                "Folded: * - 0660cdb0b05c8bede7e17a8b097cfb74",
+                "Folded: * - 1e985e6e85f4cc31ea24b8abd17e42c5",
         ]
     }
 

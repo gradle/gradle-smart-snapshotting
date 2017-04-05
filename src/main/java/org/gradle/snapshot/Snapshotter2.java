@@ -2,7 +2,9 @@ package org.gradle.snapshot;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Queues;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -14,18 +16,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 import java.nio.file.Files;
+import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -46,128 +43,203 @@ public class Snapshotter2 {
 		return snapshot(files, context, rules);
 	}
 
-	protected <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
-		Enumerator enumerator = new SimpleEnumerator(files.stream().map(file -> new PhysicalFile(file.getName(), file)).iterator());
-		process(enumerator, context, rules);
+	public <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
+		process(files.stream().map(file -> new PhysicalFile(file.getName(), file)).collect(Collectors.toList()), context, rules);
 		return context;
 	}
 
-	private void process(Enumerator enumerator, Context context, Iterable<? extends Rule> rules) throws IOException {
-		while (true) {
-			Fileish file = enumerator.next();
-			if (file == null) {
-				enumerator.close();
-				break;
-			}
+	public void process(Collection<? extends Fileish> files, Context rootContext, Iterable<? extends Rule> rules) throws IOException {
 
-			for (Rule rule : rules) {
-				if (rule.matches(file, context)) {
-					List<Operation> operations = rule.process(file, context);
-					for (Operation operation : operations) {
-						process(operation.enumerator, operation.context, rules);
+		ArrayDeque<Operation> queue = Queues.newArrayDeque();
+		SnapshotterState state = new SnapshotterState(rootContext, rules);
+		files.forEach((Fileish file) -> queue.push(new ApplyTo(file, rootContext)));
+
+		List<Operation> dependencies = Lists.newArrayList();
+
+		while (!queue.isEmpty()) {
+			Operation operation = queue.peek();
+			boolean finished = operation.isFinished();
+
+			if (!finished) {
+				operation.setContextIfNecessary(state);
+
+				dependencies.clear();
+				operation.execute(state, dependencies);
+
+				finished = dependencies.isEmpty();
+				if (!finished) {
+					for (Operation dependency : Lists.reverse(dependencies)) {
+						if (!dependency.isFinished()) {
+							queue.push(dependency);
+						}
 					}
-					break;
 				}
 			}
+
+			if (finished) {
+				operation.close();
+				queue.remove();
+			}
 		}
 	}
 
-	interface Rule {
-		boolean matches(Fileish file, Context context);
-		List<Operation> process(Fileish file, Context context) throws IOException;
-	}
+	static class SnapshotterState {
+		private Context context;
+		private final Iterable<? extends Rule> rules;
 
-	static class Operation {
-		private final Enumerator enumerator;
-		private final Context context;
+		public SnapshotterState(Context context, Iterable<? extends Rule> rules) {
+			this.context = context;
+			this.rules = rules;
+		}
 
-		public Operation(Enumerator enumerator, Context context) {
-			this.enumerator = enumerator;
+		public Context getContext() {
+			return context;
+		}
+
+		public void setContext(Context context) {
 			this.context = context;
 		}
+
+		public Iterable<? extends Rule> getRules() {
+			return rules;
+		}
 	}
 
-	static abstract class AbstractRule<F extends Fileish, C extends Context> implements Rule {
-		private final Class<? extends C> contextType;
-		private final Class<F> fileType;
+	static abstract class Operation implements Closeable {
+		private Context context;
+
+		public Operation(Context context) {
+			this.context = context;
+		}
+
+		public Context getContext() {
+			if (context == null) {
+				throw new IllegalStateException("No context is specified");
+			}
+			return context;
+		}
+
+		void setContextIfNecessary(SnapshotterState state) {
+			if (this.context == null) {
+				this.context = state.getContext();
+			} else {
+				state.setContext(this.context);
+			}
+		}
+
+		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
+		}
+
+		public boolean isFinished() throws IOException {
+			return false;
+		}
+
+		@Override
+		public void close() throws IOException {
+		}
+	}
+
+	static class ApplyTo extends Operation {
+		private final Fileish file;
+		private boolean executed;
+
+		public ApplyTo(Fileish file) {
+			this(file, null);
+		}
+
+		public ApplyTo(Fileish file, Context context) {
+			super(context);
+			this.file = file;
+		}
+
+		@Override
+		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
+			Context context = getContext();
+			for (Rule rule : state.getRules()) {
+				if (rule.matches(file, context)) {
+					executed = true;
+					rule.process(file, context, dependencies);
+					return;
+				}
+			}
+			throw new IllegalStateException(String.format("Cannot find matching rule for %s in context %s", file, context));
+		}
+
+		@Override
+		public boolean isFinished() throws IOException {
+			return executed;
+		}
+	}
+
+	static abstract class Rule {
+		private final Class<? extends Context> contextType;
+		private final Class<? extends Fileish> fileType;
 		private final Pattern pathMatcher;
 
-		public AbstractRule(Class<F> fileType, Class<? extends C> contextType, Pattern pathMatcher) {
+		public Rule(Class<? extends Fileish> fileType, Class<? extends Context> contextType, Pattern pathMatcher) {
 			this.contextType = contextType;
 			this.fileType = fileType;
 			this.pathMatcher = pathMatcher;
 		}
 
-		@Override
 		public boolean matches(Fileish file, Context context) {
 			return contextType.isAssignableFrom(context.getType())
 					&& fileType.isAssignableFrom(file.getClass())
 					&& (pathMatcher == null || pathMatcher.matcher(file.getPath()).matches());
 		}
+
+		public abstract void process(Fileish file, Context context, List<Operation> dependencies) throws IOException;
 	}
 
-	static abstract class AbstractContentRule<C extends Context> extends AbstractRule<FileishWithContents, C> {
-		public AbstractContentRule(Class<? extends C> contextType, Pattern pathMatcher) {
+	static abstract class FileRule extends Rule {
+		public FileRule(Class<? extends Context> contextType, Pattern pathMatcher) {
 			super(FileishWithContents.class, contextType, pathMatcher);
 		}
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public List<Operation> process(Fileish file, Context context) throws IOException {
-			return processInternal((FileishWithContents) file, context);
+		public void process(Fileish file, Context context, List<Operation> dependencies) throws IOException {
+			processInternal((FileishWithContents) file, context, dependencies);
 		}
 
-		abstract protected List<Operation> processInternal(FileishWithContents file, Context context) throws IOException;
+		abstract protected void processInternal(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException;
 	}
 
-	interface Enumerator extends Closeable {
-		@Nullable
-		Fileish next() throws IOException;
-		@Override
-		default void close() throws IOException {
-		}
-	}
-
-	static class SimpleEnumerator implements Enumerator {
-		private final Iterator<? extends Fileish> files;
-
-		public SimpleEnumerator(Iterator<? extends Fileish> files) {
-			this.files = files;
-		}
-
-		@Override
-		public Fileish next() throws IOException {
-			if (files.hasNext()) {
-				return files.next();
-			} else {
-				return null;
-			}
-		}
-	}
-
-	static class EnumerateZip implements Enumerator {
+	static class ProcessZip extends Operation {
 		private final FileishWithContents file;
 		private ZipInputStream input;
 
-		public EnumerateZip(FileishWithContents file) {
+		public ProcessZip(FileishWithContents file, Context context) {
+			super(context);
 			this.file = file;
 		}
 
 		@Override
-		public Fileish next() throws IOException {
+		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
 			if (input == null) {
 				input = new ZipInputStream(file.open());
 			}
-			ZipEntry nextEntry = input.getNextEntry();
-			if (nextEntry == null) {
-				close();
-				return null;
+			ZipEntry entry = input.getNextEntry();
+			if (entry == null) {
+				return;
 			}
-			return new ZipEntryFile(nextEntry.getName(), input);
+
+			// Match against directories
+			String path = entry.getName();
+			int index = -1;
+			while ((index = path.indexOf('/', index + 1)) != -1) {
+				dependencies.add(new ApplyTo(new ZipEntryDirectory(path.substring(0, index))));
+			}
+
+			// Match against the file
+			if (!entry.isDirectory()) {
+				dependencies.add(new ApplyTo(new ZipEntryFile(path, input)));
+			}
 		}
 
 		@Override
 		public void close() throws IOException {
+			System.out.println("Closing " + file.getPath());
 			if (input != null) {
 				ZipInputStream inputToClose = this.input;
 				this.input = null;
@@ -185,24 +257,26 @@ public class Snapshotter2 {
 		}
 	}
 
-	static class DefaultSnapshotRule extends AbstractContentRule<Context> {
+	static class DefaultSnapshotRule extends FileRule {
 		public DefaultSnapshotRule(Class<? extends Context> contextType, Pattern pathMatcher) {
 			super(contextType, pathMatcher);
 		}
 
 		@Override
-		public List<Operation> processInternal(FileishWithContents file, Context context) throws IOException {
+		public void processInternal(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException {
 			try (InputStream input = file.open()) {
 				Hasher hasher = md5().newHasher();
 				copy(input, asOutputStream(hasher));
 				context.snapshot(file, hasher.hash());
 			}
-			return Collections.emptyList();
 		}
 	}
 
 	interface Fileish {
 		String getPath();
+	}
+
+	interface Directoryish extends Fileish {
 	}
 
 	abstract static class AbstractFileish implements Fileish {
@@ -256,6 +330,12 @@ public class Snapshotter2 {
 		@Override
 		public InputStream open() throws IOException {
 			return new CloseShieldInputStream(inputStream);
+		}
+	}
+
+	static class ZipEntryDirectory extends AbstractFileish implements Directoryish {
+		public ZipEntryDirectory(String path) {
+			super(path);
 		}
 	}
 
@@ -351,12 +431,4 @@ public class Snapshotter2 {
 			}
 		}
 	}
-
-	/**
-	 * Indicates that the value of an element can be null.
-	 */
-	@Documented
-	@Retention(RetentionPolicy.RUNTIME)
-	@Target({ElementType.PARAMETER, ElementType.METHOD, ElementType.FIELD})
-	public @interface Nullable {}
 }
