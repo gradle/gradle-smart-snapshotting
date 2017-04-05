@@ -175,6 +175,17 @@ public class Snapshotter2 {
 		}
 	}
 
+	static class SetContext extends Operation {
+		public SetContext(Context context) {
+			super(context);
+		}
+
+		@Override
+		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
+			state.setContext(getContext());
+		}
+	}
+
 	static abstract class Rule {
 		private final Class<? extends Context> contextType;
 		private final Class<? extends Fileish> fileType;
@@ -203,10 +214,24 @@ public class Snapshotter2 {
 		@Override
 		@SuppressWarnings("unchecked")
 		public void process(Fileish file, Context context, List<Operation> dependencies) throws IOException {
-			processInternal((FileishWithContents) file, context, dependencies);
+			processContents((FileishWithContents) file, context, dependencies);
 		}
 
-		abstract protected void processInternal(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException;
+		abstract protected void processContents(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException;
+	}
+
+	static abstract class DirectoryRule extends Rule {
+		public DirectoryRule(Class<? extends Context> contextType, Pattern pathMatcher) {
+			super(PhysicalDirectory.class, contextType, pathMatcher);
+		}
+
+		@Override
+		@SuppressWarnings("unchecked")
+		public void process(Fileish file, Context context, List<Operation> dependencies) throws IOException {
+			processEntries((PhysicalDirectory) file, context, dependencies);
+		}
+
+		abstract protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> dependencies) throws IOException;
 	}
 
 	static class ProcessZip extends Operation {
@@ -291,22 +316,13 @@ public class Snapshotter2 {
 		}
 	}
 
-	static class RuntimeClasspathContext extends AbstractContext {}
-
-	static class RuntimeClasspathEntryContext extends AbstractContext {
-		@Override
-		protected HashCode fold(Stream<Map.Entry<String, Result>> results) {
-			return super.fold(results.sorted(comparing(Map.Entry::getKey)));
-		}
-	}
-
-	static class DefaultSnapshotRule extends FileRule {
-		public DefaultSnapshotRule(Class<? extends Context> contextType, Pattern pathMatcher) {
+	static class SnapshotRule extends FileRule {
+		public SnapshotRule(Class<? extends Context> contextType, Pattern pathMatcher) {
 			super(contextType, pathMatcher);
 		}
 
 		@Override
-		public void processInternal(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException {
+		public void processContents(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException {
 			try (InputStream input = file.open()) {
 				Hasher hasher = md5().newHasher();
 				copy(input, asOutputStream(hasher));
@@ -505,4 +521,17 @@ public class Snapshotter2 {
 			}
 		}
 	}
+
+	static class RuntimeClasspathContext extends Snapshotter2.AbstractContext {}
+
+	static class RuntimeClasspathEntryContext extends Snapshotter2.AbstractContext {
+		@Override
+		protected HashCode fold(Stream<Map.Entry<String, Result>> results) {
+			return super.fold(results.sorted(comparing(Map.Entry::getKey)));
+		}
+	}
+
+	static class WarList extends Snapshotter2.AbstractContext {}
+
+	static class War extends Snapshotter2.AbstractContext {}
 }
