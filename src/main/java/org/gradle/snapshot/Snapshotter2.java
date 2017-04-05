@@ -34,19 +34,23 @@ import static com.google.common.io.ByteStreams.copy;
 import static java.util.Comparator.comparing;
 
 public class Snapshotter2 {
-	public <C extends Context> C snapshot(Collection<File> files, Class<C> contextType, Iterable<Rule> rules) throws IOException {
+	public <C extends Context> C snapshot(Collection<? extends File> files, Class<C> contextType, Iterable<? extends Rule> rules) throws IOException {
 		C context;
 		try {
 			context = contextType.newInstance();
 		} catch (ReflectiveOperationException e) {
 			throw new RuntimeException(e);
 		}
-		Enumerator enumerator = new SimpleEnumerator(files.stream().map(file -> new PhysicalFile(file.getPath(), file)).iterator());
+		return snapshot(files, context, rules);
+	}
+
+	protected <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
+		Enumerator enumerator = new SimpleEnumerator(files.stream().map(file -> new PhysicalFile(file.getName(), file)).iterator());
 		process(enumerator, context, rules);
 		return context;
 	}
 
-	private void process(Enumerator enumerator, Context context, Iterable<Rule> rules) throws IOException {
+	private void process(Enumerator enumerator, Context context, Iterable<? extends Rule> rules) throws IOException {
 		while (true) {
 			Fileish file = enumerator.next();
 			if (file == null) {
@@ -94,7 +98,7 @@ public class Snapshotter2 {
 
 		@Override
 		public boolean matches(Fileish file, Context context) {
-			return contextType.isAssignableFrom(context.getClass())
+			return contextType.isAssignableFrom(context.getType())
 					&& fileType.isAssignableFrom(file.getClass())
 					&& (pathMatcher == null || pathMatcher.matcher(file.getPath()).matches());
 		}
@@ -102,10 +106,10 @@ public class Snapshotter2 {
 		@Override
 		@SuppressWarnings("unchecked")
 		public Operation process(Fileish file, Context context) throws IOException {
-			return processInternal((F) file, (C) context);
+			return processInternal((F) file, context);
 		}
 
-		abstract public Operation processInternal(F file, C context) throws IOException;
+		abstract public Operation processInternal(F file, Context context) throws IOException;
 	}
 
 	interface Enumerator extends Closeable {
@@ -204,6 +208,11 @@ public class Snapshotter2 {
 		public String getPath() {
 			return path;
 		}
+
+		@Override
+		public String toString() {
+			return path;
+		}
 	}
 
 	interface FileishWithContents extends Fileish {
@@ -245,12 +254,18 @@ public class Snapshotter2 {
 	public interface Context {
 		void snapshot(Fileish file, HashCode hash);
 		<C extends Context> C subContext(Fileish file, Class<C> type);
+		Class<? extends Context> getType();
 		HashCode fold();
 	}
 
 	static abstract class AbstractContext implements Context {
 		@VisibleForTesting
 		final Map<String, Result> results = Maps.newLinkedHashMap();
+
+		@Override
+		public Class<? extends Context> getType() {
+			return getClass();
+		}
 
 		@Override
 		public void snapshot(Fileish file, HashCode hash) {
