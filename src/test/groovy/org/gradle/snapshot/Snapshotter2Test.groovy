@@ -19,10 +19,10 @@ class Snapshotter2Test extends Specification {
     }
 
     List<Snapshotter2.Rule> runtimeClasspathRules = ImmutableList.<Snapshotter2.Rule> builder()
-        .add(new Snapshotter2.AbstractRule<Snapshotter2.FileishWithContents, Snapshotter2.RuntimeClasspathContext>(Snapshotter2.FileishWithContents.class, Snapshotter2.RuntimeClasspathContext.class, Pattern.compile(".*\\.jar")) {
+        .add(new Snapshotter2.AbstractContentRule<Snapshotter2.RuntimeClasspathContext>(Snapshotter2.RuntimeClasspathContext.class, Pattern.compile(".*\\.jar")) {
             @Override
-            Snapshotter2.Operation processInternal(Snapshotter2.FileishWithContents file, Snapshotter2.Context context) throws IOException {
-                return new Snapshotter2.Operation(new Snapshotter2.ZipEnumerator(file), context.subContext(file, Snapshotter2.RuntimeClasspathEntryContext.class))
+            protected List<Snapshotter2.Operation> processInternal(Snapshotter2.FileishWithContents file, Snapshotter2.Context context) throws IOException {
+                return [new Snapshotter2.Operation(new Snapshotter2.EnumerateZip(file), context.subContext(file, Snapshotter2.RuntimeClasspathEntryContext.class))]
             }
         })
         .add(new Snapshotter2.DefaultSnapshotRule(Snapshotter2.Context.class, null))
@@ -59,12 +59,12 @@ class Snapshotter2Test extends Specification {
 
         def rules = ImmutableList.builder()
             .add(
-                new Snapshotter2.AbstractRule<Snapshotter2.Fileish, Snapshotter2.RuntimeClasspathEntryContext>(Snapshotter2.Fileish, Snapshotter2.RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
+                new Snapshotter2.AbstractContentRule<Snapshotter2.RuntimeClasspathEntryContext>(Snapshotter2.RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
                     @Override
-                    Snapshotter2.Operation processInternal(Snapshotter2.Fileish file, Snapshotter2.Context context) throws IOException {
+                    List<Snapshotter2.Operation> processInternal(Snapshotter2.FileishWithContents file, Snapshotter2.Context context) throws IOException {
                         // Do nothing with the file
                         println "Ignoring $file.path"
-                        return null
+                        return []
                     }
                 }
             )

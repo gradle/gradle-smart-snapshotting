@@ -21,7 +21,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.file.Files;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -60,8 +62,8 @@ public class Snapshotter2 {
 
 			for (Rule rule : rules) {
 				if (rule.matches(file, context)) {
-					Operation operation = rule.process(file, context);
-					if (operation != null) {
+					List<Operation> operations = rule.process(file, context);
+					for (Operation operation : operations) {
 						process(operation.enumerator, operation.context, rules);
 					}
 					break;
@@ -72,7 +74,7 @@ public class Snapshotter2 {
 
 	interface Rule {
 		boolean matches(Fileish file, Context context);
-		Operation process(Fileish file, Context context) throws IOException;
+		List<Operation> process(Fileish file, Context context) throws IOException;
 	}
 
 	static class Operation {
@@ -102,14 +104,20 @@ public class Snapshotter2 {
 					&& fileType.isAssignableFrom(file.getClass())
 					&& (pathMatcher == null || pathMatcher.matcher(file.getPath()).matches());
 		}
+	}
+
+	static abstract class AbstractContentRule<C extends Context> extends AbstractRule<FileishWithContents, C> {
+		public AbstractContentRule(Class<? extends C> contextType, Pattern pathMatcher) {
+			super(FileishWithContents.class, contextType, pathMatcher);
+		}
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public Operation process(Fileish file, Context context) throws IOException {
-			return processInternal((F) file, context);
+		public List<Operation> process(Fileish file, Context context) throws IOException {
+			return processInternal((FileishWithContents) file, context);
 		}
 
-		abstract public Operation processInternal(F file, Context context) throws IOException;
+		abstract protected List<Operation> processInternal(FileishWithContents file, Context context) throws IOException;
 	}
 
 	interface Enumerator extends Closeable {
@@ -137,11 +145,11 @@ public class Snapshotter2 {
 		}
 	}
 
-	static class ZipEnumerator implements Enumerator {
+	static class EnumerateZip implements Enumerator {
 		private final FileishWithContents file;
 		private ZipInputStream input;
 
-		public ZipEnumerator(FileishWithContents file) {
+		public EnumerateZip(FileishWithContents file) {
 			this.file = file;
 		}
 
@@ -177,19 +185,19 @@ public class Snapshotter2 {
 		}
 	}
 
-	static class DefaultSnapshotRule extends AbstractRule<FileishWithContents, Context> {
+	static class DefaultSnapshotRule extends AbstractContentRule<Context> {
 		public DefaultSnapshotRule(Class<? extends Context> contextType, Pattern pathMatcher) {
-			super(FileishWithContents.class, contextType, pathMatcher);
+			super(contextType, pathMatcher);
 		}
 
 		@Override
-		public Operation processInternal(FileishWithContents file, Context context) throws IOException {
+		public List<Operation> processInternal(FileishWithContents file, Context context) throws IOException {
 			try (InputStream input = file.open()) {
 				Hasher hasher = md5().newHasher();
 				copy(input, asOutputStream(hasher));
 				context.snapshot(file, hasher.hash());
 			}
-			return null;
+			return Collections.emptyList();
 		}
 	}
 
