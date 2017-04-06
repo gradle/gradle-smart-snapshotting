@@ -98,7 +98,7 @@ class Snapshotter2Test extends Specification {
             }
         })
         // Handle directories as exploded WAR files
-        .add(new DirectoryRule(RuntimeClasspathContext, null) {
+        .add(new DirectoryRule(WarList, null) {
             @Override
             protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.recordSubContext(directory, War)
