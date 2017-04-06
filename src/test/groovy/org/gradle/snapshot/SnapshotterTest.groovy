@@ -3,7 +3,6 @@ package org.gradle.snapshot
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.Lists
 import com.google.common.hash.HashCode
-import com.google.common.hash.Hasher
 import org.gradle.snapshot.contexts.AbstractContext
 import org.gradle.snapshot.contexts.Context
 import org.gradle.snapshot.contexts.Result
@@ -18,6 +17,7 @@ import org.gradle.snapshot.operations.SetContext
 import org.gradle.snapshot.rules.DirectoryRule
 import org.gradle.snapshot.rules.FileRule
 import org.gradle.snapshot.rules.Rule
+import org.gradle.snapshot.rules.SnapshotFileRule
 import org.gradle.snapshot.util.TestFile
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
@@ -25,10 +25,6 @@ import spock.lang.Specification
 import java.util.regex.Pattern
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-
-import static com.google.common.hash.Funnels.asOutputStream
-import static com.google.common.hash.Hashing.md5
-import static com.google.common.io.ByteStreams.copy
 
 class SnapshotterTest extends Specification {
     // Context for runtime classpaths
@@ -77,16 +73,7 @@ class SnapshotterTest extends Specification {
             }
         })
         // Hash any file in any context
-        .add(new FileRule(Context.class, null) {
-            @Override
-            protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
-                file.open().withCloseable { input ->
-                    Hasher hasher = md5().newHasher()
-                    copy(input, asOutputStream(hasher))
-                    context.recordSnapshot(file, hasher.hash())
-                }
-            }
-        })
+        .add(new SnapshotFileRule(Context, null))
         .build()
 
     private static final List<Rule> WAR_FILE_RULES = ImmutableList.<Rule> builder()

@@ -1,14 +1,17 @@
 package org.gradle.snapshot.files;
 
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 
 public class PhysicalFile extends AbstractFileish implements FileishWithContents, Physical {
     private final File file;
+    private HashCode contentHash;
 
     public PhysicalFile(String path, File file) {
         super(path);
@@ -21,11 +24,15 @@ public class PhysicalFile extends AbstractFileish implements FileishWithContents
     }
 
     @Override
-    public InputStream open() {
-        try {
-            return new BufferedInputStream(Files.newInputStream(file.toPath()));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    public InputStream open() throws IOException {
+        return new BufferedInputStream(Files.newInputStream(file.toPath()));
+    }
+
+    @Override
+    public HashCode getContentHash() throws IOException {
+        if (contentHash == null) {
+            contentHash = com.google.common.io.Files.hash(file, Hashing.md5());
         }
+        return contentHash;
     }
 }
