@@ -28,17 +28,11 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+// TODO: Handle missing files
+// TODO: Handle empty directories
+// TODO: Handle junk files on classpaths, and in WAR files
+// TODO: Demonstrate properties file filtering
 public class Snapshotter2 {
-	public <C extends Context> C snapshot(Collection<? extends File> files, Class<C> contextType, Iterable<? extends Rule> rules) throws IOException {
-		C context;
-		try {
-			context = contextType.newInstance();
-		} catch (ReflectiveOperationException e) {
-			throw new RuntimeException(e);
-		}
-		return snapshot(files, context, rules);
-	}
-
 	public <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
 		process(files.stream()
 				.map(file -> Physical.of(file.getName(), file))
@@ -96,6 +90,10 @@ public class Snapshotter2 {
 			return rules;
 		}
 	}
+
+	/*
+	 * Operations
+	 */
 
 	static abstract class Operation implements Closeable {
 		private Context context;
@@ -161,54 +159,6 @@ public class Snapshotter2 {
 			state.setContext(getContext());
 			return true;
 		}
-	}
-
-	static abstract class Rule {
-		private final Class<? extends Context> contextType;
-		private final Class<? extends Fileish> fileType;
-		private final Pattern pathMatcher;
-
-		public Rule(Class<? extends Fileish> fileType, Class<? extends Context> contextType, Pattern pathMatcher) {
-			this.contextType = contextType;
-			this.fileType = fileType;
-			this.pathMatcher = pathMatcher;
-		}
-
-		public boolean matches(Fileish file, Context context) {
-			return contextType.isAssignableFrom(context.getType())
-					&& fileType.isAssignableFrom(file.getClass())
-					&& (pathMatcher == null || pathMatcher.matcher(file.getPath()).matches());
-		}
-
-		public abstract void process(Fileish file, Context context, List<Operation> operations) throws IOException;
-	}
-
-	static abstract class FileRule extends Rule {
-		public FileRule(Class<? extends Context> contextType, Pattern pathMatcher) {
-			super(FileishWithContents.class, contextType, pathMatcher);
-		}
-
-		@Override
-		@SuppressWarnings("unchecked")
-		public void process(Fileish file, Context context, List<Operation> operations) throws IOException {
-			processContents((FileishWithContents) file, context, operations);
-		}
-
-		abstract protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException;
-	}
-
-	static abstract class DirectoryRule extends Rule {
-		public DirectoryRule(Class<? extends Context> contextType, Pattern pathMatcher) {
-			super(PhysicalDirectory.class, contextType, pathMatcher);
-		}
-
-		@Override
-		@SuppressWarnings("unchecked")
-		public void process(Fileish file, Context context, List<Operation> operations) throws IOException {
-			processEntries((PhysicalDirectory) file, context, operations);
-		}
-
-		abstract protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException;
 	}
 
 	static class ProcessZip extends Operation {
@@ -297,6 +247,62 @@ public class Snapshotter2 {
 			dependencies.add(new ApplyTo(Physical.of(path.toString(), file)));
 		}
 	}
+
+	/*
+	 * Rules
+	 */
+
+	static abstract class Rule {
+		private final Class<? extends Context> contextType;
+		private final Class<? extends Fileish> fileType;
+		private final Pattern pathMatcher;
+
+		public Rule(Class<? extends Fileish> fileType, Class<? extends Context> contextType, Pattern pathMatcher) {
+			this.contextType = contextType;
+			this.fileType = fileType;
+			this.pathMatcher = pathMatcher;
+		}
+
+		public boolean matches(Fileish file, Context context) {
+			return contextType.isAssignableFrom(context.getType())
+					&& fileType.isAssignableFrom(file.getClass())
+					&& (pathMatcher == null || pathMatcher.matcher(file.getPath()).matches());
+		}
+
+		public abstract void process(Fileish file, Context context, List<Operation> operations) throws IOException;
+	}
+
+	static abstract class FileRule extends Rule {
+		public FileRule(Class<? extends Context> contextType, Pattern pathMatcher) {
+			super(FileishWithContents.class, contextType, pathMatcher);
+		}
+
+		@Override
+		@SuppressWarnings("unchecked")
+		public void process(Fileish file, Context context, List<Operation> operations) throws IOException {
+			processContents((FileishWithContents) file, context, operations);
+		}
+
+		abstract protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException;
+	}
+
+	static abstract class DirectoryRule extends Rule {
+		public DirectoryRule(Class<? extends Context> contextType, Pattern pathMatcher) {
+			super(PhysicalDirectory.class, contextType, pathMatcher);
+		}
+
+		@Override
+		@SuppressWarnings("unchecked")
+		public void process(Fileish file, Context context, List<Operation> operations) throws IOException {
+			processEntries((PhysicalDirectory) file, context, operations);
+		}
+
+		abstract protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException;
+	}
+
+	/*
+	 * File-like objects
+	 */
 
 	interface Fileish {
 		String getPath();
@@ -395,6 +401,10 @@ public class Snapshotter2 {
 			super(path);
 		}
 	}
+
+	/*
+	 * Contexts
+	 */
 
 	public interface Context {
 		void snapshot(Fileish file, HashCode hash);
