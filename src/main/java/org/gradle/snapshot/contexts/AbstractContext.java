@@ -7,7 +7,10 @@ import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import org.gradle.snapshot.files.DefaultPhysicalFileSnapshot;
 import org.gradle.snapshot.files.Fileish;
+import org.gradle.snapshot.files.FileishWithContents;
+import org.gradle.snapshot.files.PhysicalFile;
 import org.gradle.snapshot.files.PhysicalFileSnapshot;
 
 import java.util.Collection;
@@ -16,6 +19,7 @@ import java.util.Map;
 public abstract class AbstractContext implements Context {
     @VisibleForTesting
     final Map<String, Result> results = Maps.newLinkedHashMap();
+    private PhysicalFile originFile;
 
     @Override
     public Class<? extends Context> getType() {
@@ -62,8 +66,22 @@ public abstract class AbstractContext implements Context {
             hasher.putBytes(entry.getValue().getHashCode().asBytes());
             builder.addAll(entry.getValue().getSnapshots());
         });
-        return new SnapshotResult(builder.build(), hasher.hash());
-    }            
+        HashCode foldedHash = hasher.hash();
+        if (originFile != null) {
+            builder.add(new DefaultPhysicalFileSnapshot(originFile, foldedHash));
+        }
+        return new SnapshotResult(builder.build(), foldedHash);
+    }
+
+    @Override
+    public void recordOriginFile(FileishWithContents file) {
+        if (file instanceof PhysicalFile) {
+            if (originFile != null) {
+                throw new IllegalStateException("Only can set one physical origin file");
+            }
+            originFile = (PhysicalFile) file;
+        }
+    }
 
     @Override
     public String toString() {

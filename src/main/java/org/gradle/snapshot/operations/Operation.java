@@ -29,6 +29,7 @@ public abstract class Operation implements Closeable {
         }
     }
 
+    // TODO: I would prefer if execute only would get the rules, not the whole state
     public abstract boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException;
 
     @Override

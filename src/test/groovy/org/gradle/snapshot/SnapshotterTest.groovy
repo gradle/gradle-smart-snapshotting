@@ -159,7 +159,7 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: classes!fourthFile.txt - 6c99cb370b82c9c527320b35524213e6",
                 "Snapshot taken: classes!subdir/build.log - a9cca315f4b8650dccfa3d93284998ef",
                 "Snapshot taken: classes!thirdFile.txt - 3f1d3e7fb9620156f8e911fb90d89c42",
-                "Folded: RuntimeClasspathContext - a6fb5fc3061570f426ef599fa9b53a73 - [fourthFile.txt, subdir/build.log, thirdFile.txt]",
+                "Folded: RuntimeClasspathContext - a6fb5fc3061570f426ef599fa9b53a73 - [library.jar: 429be5439dc0cf3eacb9a48563f00a52, fourthFile.txt: 6c99cb370b82c9c527320b35524213e6, subdir/build.log: a9cca315f4b8650dccfa3d93284998ef, thirdFile.txt: 3f1d3e7fb9620156f8e911fb90d89c42]",
         ]
     }
 
@@ -187,7 +187,7 @@ class SnapshotterTest extends Specification {
         snapshot([zipFile], RuntimeClasspathContext, rules) == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
-                "Folded: RuntimeClasspathContext - 1e985e6e85f4cc31ea24b8abd17e42c5 - []",
+                "Folded: RuntimeClasspathContext - 1e985e6e85f4cc31ea24b8abd17e42c5 - [library.jar: dbd9b70c18768d3199c41efef40c73c0]",
         ]
     }
 
@@ -236,7 +236,7 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/guava.jar!version.properties - 9a0de96b30c230abc8d5263b4c9e22a4",
                 "Snapshot taken: web-app.war!README.md - c47c7c7383225ab55ff591cb59c41e6b",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/core.jar!org/gradle/Util.class - 23e8a4b4f7cc1898ef12b4e6e48852bb",
-                "Folded: WarList - 61091b4979095cb64ef7e4c5bede55c2 - []",
+                "Folded: WarList - 61091b4979095cb64ef7e4c5bede55c2 - [web-app.war: 7124d242b1000e1c054da52d489a07db]",
         ]
     }
 
@@ -275,7 +275,7 @@ class SnapshotterTest extends Specification {
         }
 
         private void report(String type, String filePath, Result result) {
-            def event = "$type: ${getFullPath(filePath)} - ${result.hashCode} - ${result.snapshots*.file*.path}"
+            def event = "$type: ${getFullPath(filePath)} - ${result.hashCode} - ${result.snapshots.collect { snapshot -> "${snapshot.file.path}: ${snapshot.hashCode}"}}"
             events.add(event)
             println event
         }
@@ -300,6 +300,11 @@ class SnapshotterTest extends Specification {
             def result = delegate.fold()
             report("Folded", getType().simpleName, result)
             return result
+        }
+
+        @Override
+        void recordOriginFile(FileishWithContents file) {
+            delegate.recordOriginFile(file)
         }
 
         @Override
