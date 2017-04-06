@@ -18,8 +18,8 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -48,9 +48,11 @@ public class Snapshotter2 {
 
 	public void process(Collection<? extends Fileish> files, Context rootContext, Iterable<? extends Rule> rules) throws IOException {
 
-		ArrayDeque<Operation> queue = Queues.newArrayDeque();
+		Deque<Operation> queue = Queues.newArrayDeque();
 		SnapshotterState state = new SnapshotterState(rootContext, rules);
-		files.forEach((Fileish file) -> queue.addLast(new ApplyTo(file, rootContext)));
+		for (Fileish file : files) {
+			queue.addLast(new ApplyTo(file, rootContext));
+		}
 
 		List<Operation> dependencies = Lists.newArrayList();
 
@@ -61,16 +63,14 @@ public class Snapshotter2 {
 			dependencies.clear();
 			boolean done = operation.execute(state, dependencies);
 
-			boolean hasDependencies = !dependencies.isEmpty();
-			if (done || !hasDependencies) {
+			int dependencyCount = dependencies.size();
+			if (done || dependencyCount == 0) {
 				operation.close();
 				queue.remove();
 			}
 
-			if (hasDependencies) {
-				for (Operation dependency : Lists.reverse(dependencies)) {
-					queue.push(dependency);
-				}
+			for (int idx = dependencyCount - 1; idx >= 0; idx--) {
+				queue.push(dependencies.get(idx));
 			}
 		}
 	}
