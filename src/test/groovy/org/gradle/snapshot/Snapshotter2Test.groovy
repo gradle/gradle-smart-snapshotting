@@ -2,6 +2,7 @@ package org.gradle.snapshot
 
 import com.google.common.collect.ImmutableList
 import com.google.common.hash.HashCode
+import com.google.common.hash.Hasher
 import org.gradle.snapshot.Snapshotter2.Context
 import org.gradle.snapshot.Snapshotter2.DirectoryRule
 import org.gradle.snapshot.Snapshotter2.Directoryish
@@ -16,7 +17,6 @@ import org.gradle.snapshot.Snapshotter2.Rule
 import org.gradle.snapshot.Snapshotter2.RuntimeClasspathContext
 import org.gradle.snapshot.Snapshotter2.RuntimeClasspathEntryContext
 import org.gradle.snapshot.Snapshotter2.SetContext
-import org.gradle.snapshot.Snapshotter2.SnapshotRule
 import org.gradle.snapshot.Snapshotter2.War
 import org.gradle.snapshot.Snapshotter2.WarList
 import org.gradle.snapshot.util.TestFile
@@ -27,69 +27,86 @@ import java.util.regex.Pattern
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+import static com.google.common.hash.Funnels.asOutputStream
+import static com.google.common.hash.Hashing.md5
+import static com.google.common.io.ByteStreams.copy
+
 class Snapshotter2Test extends Specification {
-    @org.junit.Rule
-    TemporaryFolder temporaryFolder = new TemporaryFolder()
-    Snapshotter2 snapshotter = new Snapshotter2()
-
-    TestFile file(Object... path) {
-        return new TestFile(temporaryFolder.root, path)
-    }
-
-    List<Rule> runtimeClasspathRules = ImmutableList.<Rule> builder()
+    private static final List<Rule> RUNTIME_CLASSPATH_RULES = ImmutableList.<Rule> builder()
+        // Treat JAR files as classpath entries inside the classpath
         .add(new FileRule(RuntimeClasspathContext, Pattern.compile(".*\\.jar")) {
             @Override
-            protected void processContents(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException {
+            protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.subContext(file, RuntimeClasspathEntryContext)
-                dependencies.add(new ProcessZip(file, subContext))
+                operations.add(new ProcessZip(file, subContext))
             }
         })
+        // Treat directories as classpath entries inside the classpath
         .add(new DirectoryRule(RuntimeClasspathContext, null) {
             @Override
-            protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> dependencies) throws IOException {
+            protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.subContext(directory, RuntimeClasspathEntryContext)
-                dependencies.add(new ProcessDirectory(directory, subContext))
+                operations.add(new ProcessDirectory(directory, subContext))
             }
         })
+        // Ignore empty directories inside classpath entries
         .add(new Rule(Directoryish, RuntimeClasspathEntryContext, null) {
             @Override
-            void process(Fileish file, Context context, List dependencies) throws IOException {
-                // Ignore empty directories inside classpath entries
+            void process(Fileish file, Context context, List operations) throws IOException {
             }
         })
-        .add(new SnapshotRule(Context.class, null))
+        // Hash any file in any context
+        .add(new FileRule(Context.class, null) {
+            @Override
+            protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
+                file.open().withCloseable { input ->
+                    Hasher hasher = md5().newHasher()
+                    copy(input, asOutputStream(hasher))
+                    context.snapshot(file, hasher.hash())
+                }
+            }
+        })
         .build()
 
-    List<Rule> warFileRules = ImmutableList.<Rule> builder()
+    private static final List<Rule> WAR_FILE_RULES = ImmutableList.<Rule> builder()
+        // Handle WAR files as WAR files
         .add(new FileRule(WarList, Pattern.compile(".*\\.war")) {
             @Override
-            protected void processContents(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException {
+            protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.subContext(file, War)
-                dependencies.add(new ProcessZip(file, subContext))
+                operations.add(new ProcessZip(file, subContext))
             }
         })
+        // Handle directories as exploded WAR files
         .add(new DirectoryRule(RuntimeClasspathContext, null) {
             @Override
-            protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> dependencies) throws IOException {
+            protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.subContext(directory, War)
-                dependencies.add(new ProcessDirectory(directory, subContext))
+                operations.add(new ProcessDirectory(directory, subContext))
             }
         })
+        // Handle WEB-INF/lib as a runtime classpath
         .add(new Rule(Directoryish, War, Pattern.compile("WEB-INF/lib")) {
             @Override
-            void process(Fileish file, Context context, List<Operation> dependencies) throws IOException {
+            void process(Fileish file, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.subContext(file, RuntimeClasspathContext)
-                dependencies.add(new SetContext(subContext))
+                operations.add(new SetContext(subContext))
             }
         })
+        // Ignore empty directories in WAR files
         .add(new Rule(Directoryish, War, null) {
             @Override
-            void process(Fileish file, Context context, List dependencies) throws IOException {
+            void process(Fileish file, Context context, List operations) throws IOException {
                 // Ignore empty directories inside WAR files
             }
         })
-        .addAll(runtimeClasspathRules)
+        // Handle runtime classpaths as usual
+        .addAll(RUNTIME_CLASSPATH_RULES)
         .build()
+
+    @org.junit.Rule
+    TemporaryFolder temporaryFolder = new TemporaryFolder()
+    Snapshotter2 snapshotter = new Snapshotter2()
 
     def "snapshots runtime classpath files"() {
         def zipFile = file('zipContents').create {
@@ -108,7 +125,7 @@ class Snapshotter2Test extends Specification {
         }
 
         expect:
-        snapshot([zipFile, classes], RuntimeClasspathContext, runtimeClasspathRules) == [
+        snapshot([zipFile, classes], RuntimeClasspathContext, RUNTIME_CLASSPATH_RULES) == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
                 "Snapshot taken: library.jar!subdir/someOtherFile.log - a9cca315f4b8650dccfa3d93284998ef",
@@ -120,7 +137,6 @@ class Snapshotter2Test extends Specification {
     }
 
     def "can ignore file in runtime classpath"() {
-        println temporaryFolder.root.absolutePath
         def zipFile = file('zipContents').create {
             file('firstFile.txt').text = "Some text"
             file('secondFile.txt').text = "Second File"
@@ -130,18 +146,15 @@ class Snapshotter2Test extends Specification {
         }.createZip(file('library.jar'))
 
         def rules = ImmutableList.builder()
-            .add(
-                new FileRule(RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
-                    @Override
-                    void processContents(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException {
-                        // Do nothing with the file
-                        println "Ignoring $file.path"
-                    }
+            // Ignore *.log files inside classpath entries
+            .add(new FileRule(RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
+                @Override
+                void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
+                    // Do nothing with the file
                 }
-            )
-            .addAll(runtimeClasspathRules)
+            })
+            .addAll(RUNTIME_CLASSPATH_RULES)
             .build()
-
 
         expect:
         snapshot([zipFile], RuntimeClasspathContext, rules) == [
@@ -152,7 +165,6 @@ class Snapshotter2Test extends Specification {
     }
 
     def "recognizes runtime classpath inside war file"() {
-        println temporaryFolder.root.absolutePath
         def guavaJar = file('guavaContents').create {
             "com" {
                 "google" {
@@ -174,7 +186,7 @@ class Snapshotter2Test extends Specification {
             }
         }.createZip(file('core.jar'))
 
-        // Create WAR file like this so we can put JARs in WEB-INF/lib non-consecutively
+        // Create WAR file like this so we can break up the runtime classpath in WEB-INF/lib
         def warFile = file("web-app.war")
         def warFileOut = new ZipOutputStream(new FileOutputStream(warFile))
         warFileOut.putNextEntry(new ZipEntry("WEB-INF/"))
@@ -190,7 +202,7 @@ class Snapshotter2Test extends Specification {
         warFileOut.close()
 
         expect:
-        snapshot([warFile], WarList, warFileRules) == [
+        snapshot([warFile], WarList, WAR_FILE_RULES) == [
                 "Snapshot taken: web-app.war!WEB-INF/web.xml - 672d3ef8a00bcece517a3fed0f06804b",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/guava.jar!com/google/common/collection/Lists.class - 691d1860ec58dd973e803e209697d065",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/guava.jar!com/google/common/collection/Sets.class - 86f5baf708c6c250204451eb89736947",
@@ -261,5 +273,9 @@ class Snapshotter2Test extends Specification {
         Class<? extends Context> getType() {
             return delegate.getType()
         }
+    }
+
+    TestFile file(Object... path) {
+        return new TestFile(temporaryFolder.root, path)
     }
 }

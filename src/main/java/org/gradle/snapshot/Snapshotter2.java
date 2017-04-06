@@ -29,9 +29,6 @@ import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import static com.google.common.hash.Funnels.asOutputStream;
-import static com.google.common.hash.Hashing.md5;
-import static com.google.common.io.ByteStreams.copy;
 import static java.util.Comparator.comparing;
 
 public class Snapshotter2 {
@@ -62,27 +59,21 @@ public class Snapshotter2 {
 
 		while (!queue.isEmpty()) {
 			Operation operation = queue.peek();
-			boolean finished = operation.isFinished();
+			operation.setContextIfNecessary(state);
 
-			if (!finished) {
-				operation.setContextIfNecessary(state);
+			dependencies.clear();
+			boolean done = operation.execute(state, dependencies);
 
-				dependencies.clear();
-				operation.execute(state, dependencies);
-
-				finished = dependencies.isEmpty();
-				if (!finished) {
-					for (Operation dependency : Lists.reverse(dependencies)) {
-						if (!dependency.isFinished()) {
-							queue.push(dependency);
-						}
-					}
-				}
-			}
-
-			if (finished) {
+			boolean hasDependencies = !dependencies.isEmpty();
+			if (done || !hasDependencies) {
 				operation.close();
 				queue.remove();
+			}
+
+			if (hasDependencies) {
+				for (Operation dependency : Lists.reverse(dependencies)) {
+					queue.push(dependency);
+				}
 			}
 		}
 	}
@@ -131,12 +122,7 @@ public class Snapshotter2 {
 			}
 		}
 
-		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
-		}
-
-		public boolean isFinished() throws IOException {
-			return false;
-		}
+		abstract boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException;
 
 		@Override
 		public void close() throws IOException {
@@ -145,7 +131,6 @@ public class Snapshotter2 {
 
 	static class ApplyTo extends Operation {
 		private final Fileish file;
-		private boolean executed;
 
 		public ApplyTo(Fileish file) {
 			this(file, null);
@@ -157,21 +142,15 @@ public class Snapshotter2 {
 		}
 
 		@Override
-		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
+		public boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
 			Context context = getContext();
 			for (Rule rule : state.getRules()) {
 				if (rule.matches(file, context)) {
-					executed = true;
 					rule.process(file, context, dependencies);
-					return;
+					return true;
 				}
 			}
 			throw new IllegalStateException(String.format("Cannot find matching rule for %s in context %s", file, context));
-		}
-
-		@Override
-		public boolean isFinished() throws IOException {
-			return executed;
 		}
 	}
 
@@ -181,8 +160,9 @@ public class Snapshotter2 {
 		}
 
 		@Override
-		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
+		public boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
 			state.setContext(getContext());
+			return true;
 		}
 	}
 
@@ -203,7 +183,7 @@ public class Snapshotter2 {
 					&& (pathMatcher == null || pathMatcher.matcher(file.getPath()).matches());
 		}
 
-		public abstract void process(Fileish file, Context context, List<Operation> dependencies) throws IOException;
+		public abstract void process(Fileish file, Context context, List<Operation> operations) throws IOException;
 	}
 
 	static abstract class FileRule extends Rule {
@@ -213,11 +193,11 @@ public class Snapshotter2 {
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public void process(Fileish file, Context context, List<Operation> dependencies) throws IOException {
-			processContents((FileishWithContents) file, context, dependencies);
+		public void process(Fileish file, Context context, List<Operation> operations) throws IOException {
+			processContents((FileishWithContents) file, context, operations);
 		}
 
-		abstract protected void processContents(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException;
+		abstract protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException;
 	}
 
 	static abstract class DirectoryRule extends Rule {
@@ -227,11 +207,11 @@ public class Snapshotter2 {
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public void process(Fileish file, Context context, List<Operation> dependencies) throws IOException {
-			processEntries((PhysicalDirectory) file, context, dependencies);
+		public void process(Fileish file, Context context, List<Operation> operations) throws IOException {
+			processEntries((PhysicalDirectory) file, context, operations);
 		}
 
-		abstract protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> dependencies) throws IOException;
+		abstract protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException;
 	}
 
 	static class ProcessZip extends Operation {
@@ -244,13 +224,13 @@ public class Snapshotter2 {
 		}
 
 		@Override
-		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
+		public boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
 			if (input == null) {
 				input = new ZipInputStream(file.open());
 			}
 			ZipEntry entry = input.getNextEntry();
 			if (entry == null) {
-				return;
+				return true;
 			}
 
 			// Match against directories
@@ -264,11 +244,11 @@ public class Snapshotter2 {
 			if (!entry.isDirectory()) {
 				dependencies.add(new ApplyTo(new ZipEntryFile(path, input)));
 			}
+			return false;
 		}
 
 		@Override
 		public void close() throws IOException {
-			System.out.println("Closing " + file.getPath());
 			if (input != null) {
 				ZipInputStream inputToClose = this.input;
 				this.input = null;
@@ -287,10 +267,14 @@ public class Snapshotter2 {
 		}
 
 		@Override
-		public void execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
+		public boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
 			File rootFile = root.getFile();
 			if (files == null) {
 				files = Files.walk(rootFile.toPath()).map(Path::toFile).iterator();
+			}
+
+			if (!files.hasNext()) {
+				return true;
 			}
 
 			while (files.hasNext()) {
@@ -303,6 +287,7 @@ public class Snapshotter2 {
 				applyToAncestry(new StringBuilder(), rootFile, file, dependencies);
 				break;
 			}
+			return false;
 		}
 
 		private void applyToAncestry(StringBuilder path, File root, File file, List<Operation> dependencies) {
@@ -313,21 +298,6 @@ public class Snapshotter2 {
 			}
 			path.append(file.getName());
 			dependencies.add(new ApplyTo(Physical.of(path.toString(), file)));
-		}
-	}
-
-	static class SnapshotRule extends FileRule {
-		public SnapshotRule(Class<? extends Context> contextType, Pattern pathMatcher) {
-			super(contextType, pathMatcher);
-		}
-
-		@Override
-		public void processContents(FileishWithContents file, Context context, List<Operation> dependencies) throws IOException {
-			try (InputStream input = file.open()) {
-				Hasher hasher = md5().newHasher();
-				copy(input, asOutputStream(hasher));
-				context.snapshot(file, hasher.hash());
-			}
 		}
 	}
 
