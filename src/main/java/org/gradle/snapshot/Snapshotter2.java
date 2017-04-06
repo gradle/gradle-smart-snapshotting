@@ -407,8 +407,8 @@ public class Snapshotter2 {
 	 */
 
 	public interface Context {
-		void snapshot(Fileish file, HashCode hash);
-		<C extends Context> C subContext(Fileish file, Class<C> type);
+		void recordSnapshot(Fileish file, HashCode hash);
+		<C extends Context> C recordSubContext(Fileish file, Class<C> type);
 		Class<? extends Context> getType();
 		HashCode fold();
 	}
@@ -423,13 +423,13 @@ public class Snapshotter2 {
 		}
 
 		@Override
-		public void snapshot(Fileish file, HashCode hash) {
+		public void recordSnapshot(Fileish file, HashCode hash) {
 			String path = file.getPath();
 			results.put(path, new SnapshotResult(hash));
 		}
 
 		@Override
-		public <C extends Context> C subContext(Fileish file, Class<C> type) {
+		public <C extends Context> C recordSubContext(Fileish file, Class<C> type) {
 			String path = file.getPath();
 			Result result = results.get(path);
 			C subContext;

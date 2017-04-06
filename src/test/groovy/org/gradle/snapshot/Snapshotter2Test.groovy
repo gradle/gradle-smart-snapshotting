@@ -57,7 +57,7 @@ class Snapshotter2Test extends Specification {
         .add(new FileRule(RuntimeClasspathContext, Pattern.compile(".*\\.jar")) {
             @Override
             protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.subContext(file, RuntimeClasspathEntryContext)
+                def subContext = context.recordSubContext(file, RuntimeClasspathEntryContext)
                 operations.add(new ProcessZip(file, subContext))
             }
         })
@@ -65,7 +65,7 @@ class Snapshotter2Test extends Specification {
         .add(new DirectoryRule(RuntimeClasspathContext, null) {
             @Override
             protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.subContext(directory, RuntimeClasspathEntryContext)
+                def subContext = context.recordSubContext(directory, RuntimeClasspathEntryContext)
                 operations.add(new ProcessDirectory(directory, subContext))
             }
         })
@@ -82,7 +82,7 @@ class Snapshotter2Test extends Specification {
                 file.open().withCloseable { input ->
                     Hasher hasher = md5().newHasher()
                     copy(input, asOutputStream(hasher))
-                    context.snapshot(file, hasher.hash())
+                    context.recordSnapshot(file, hasher.hash())
                 }
             }
         })
@@ -93,7 +93,7 @@ class Snapshotter2Test extends Specification {
         .add(new FileRule(WarList, Pattern.compile(".*\\.war")) {
             @Override
             protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.subContext(file, War)
+                def subContext = context.recordSubContext(file, War)
                 operations.add(new ProcessZip(file, subContext))
             }
         })
@@ -101,7 +101,7 @@ class Snapshotter2Test extends Specification {
         .add(new DirectoryRule(RuntimeClasspathContext, null) {
             @Override
             protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.subContext(directory, War)
+                def subContext = context.recordSubContext(directory, War)
                 operations.add(new ProcessDirectory(directory, subContext))
             }
         })
@@ -109,7 +109,7 @@ class Snapshotter2Test extends Specification {
         .add(new Rule(Directoryish, War, Pattern.compile("WEB-INF/lib")) {
             @Override
             void process(Fileish file, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.subContext(file, RuntimeClasspathContext)
+                def subContext = context.recordSubContext(file, RuntimeClasspathContext)
                 operations.add(new SetContext(subContext))
             }
         })
@@ -256,9 +256,9 @@ class Snapshotter2Test extends Specification {
         }
 
         @Override
-        void snapshot(Fileish file, HashCode hash) {
+        void recordSnapshot(Fileish file, HashCode hash) {
             report("Snapshot taken", file.path, hash)
-            delegate.snapshot(file, hash)
+            delegate.recordSnapshot(file, hash)
         }
 
         private void report(String type, String filePath, HashCode hash) {
@@ -272,8 +272,8 @@ class Snapshotter2Test extends Specification {
         }
 
         @Override
-        <C extends Context> C subContext(Fileish file, Class<C> type) {
-            def subContext = delegate.subContext(file, type)
+        <C extends Context> C recordSubContext(Fileish file, Class<C> type) {
+            def subContext = delegate.recordSubContext(file, type)
             def wrapper = wrappers.get(subContext)
             if (wrapper == null) {
                 wrapper = new RecordingContextWrapper(getFullPath(file.path), events, subContext)
