@@ -19,6 +19,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.zip.ZipInputStream;
 // TODO: Handle empty directories
 // TODO: Handle junk files on classpaths, and in WAR files
 // TODO: Demonstrate properties file filtering
+// TODO: Emit physical snapshots
 public class Snapshotter2 {
 	public <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
 		process(files.stream()
@@ -44,9 +46,7 @@ public class Snapshotter2 {
 
 		Deque<Operation> queue = Queues.newArrayDeque();
 		SnapshotterState state = new SnapshotterState(rootContext, rules);
-		for (Fileish file : files) {
-			queue.addLast(new ApplyTo(file, rootContext));
-		}
+		queue.addLast(new ApplyTo(files, rootContext));
 
 		List<Operation> dependencies = Lists.newArrayList();
 
@@ -125,27 +125,34 @@ public class Snapshotter2 {
 	}
 
 	static class ApplyTo extends Operation {
-		private final Fileish file;
+		private final Iterable<? extends Fileish> files;
 
 		public ApplyTo(Fileish file) {
-			this(file, null);
+			this(Collections.singleton(file), null);
 		}
 
-		public ApplyTo(Fileish file, Context context) {
+		public ApplyTo(Iterable<? extends Fileish> files, Context context) {
 			super(context);
-			this.file = file;
+			this.files = files;
 		}
 
 		@Override
 		public boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
 			Context context = getContext();
-			for (Rule rule : state.getRules()) {
-				if (rule.matches(file, context)) {
-					rule.process(file, context, dependencies);
-					return true;
+			for (Fileish file : files) {
+				Rule matchedRule = null;
+				for (Rule rule : state.getRules()) {
+					if (rule.matches(file, context)) {
+						matchedRule = rule;
+						break;
+					}
 				}
+				if (matchedRule == null) {
+					throw new IllegalStateException(String.format("Cannot find matching rule for %s in context %s", file, context));
+				}
+				matchedRule.process(file, context, dependencies);
 			}
-			throw new IllegalStateException(String.format("Cannot find matching rule for %s in context %s", file, context));
+			return true;
 		}
 	}
 
