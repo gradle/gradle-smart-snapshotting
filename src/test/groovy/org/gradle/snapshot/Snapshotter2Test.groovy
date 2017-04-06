@@ -1,8 +1,10 @@
 package org.gradle.snapshot
 
 import com.google.common.collect.ImmutableList
+import com.google.common.collect.Lists
 import com.google.common.hash.HashCode
 import com.google.common.hash.Hasher
+import org.gradle.snapshot.Snapshotter2.AbstractContext
 import org.gradle.snapshot.Snapshotter2.Context
 import org.gradle.snapshot.Snapshotter2.DirectoryRule
 import org.gradle.snapshot.Snapshotter2.Directoryish
@@ -14,11 +16,7 @@ import org.gradle.snapshot.Snapshotter2.PhysicalDirectory
 import org.gradle.snapshot.Snapshotter2.ProcessDirectory
 import org.gradle.snapshot.Snapshotter2.ProcessZip
 import org.gradle.snapshot.Snapshotter2.Rule
-import org.gradle.snapshot.Snapshotter2.RuntimeClasspathContext
-import org.gradle.snapshot.Snapshotter2.RuntimeClasspathEntryContext
 import org.gradle.snapshot.Snapshotter2.SetContext
-import org.gradle.snapshot.Snapshotter2.War
-import org.gradle.snapshot.Snapshotter2.WarList
 import org.gradle.snapshot.util.TestFile
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
@@ -32,6 +30,28 @@ import static com.google.common.hash.Hashing.md5
 import static com.google.common.io.ByteStreams.copy
 
 class Snapshotter2Test extends Specification {
+    // Context for runtime classpaths
+    static class RuntimeClasspathContext extends AbstractContext {}
+
+    // Context for runtime classpath entries (JAR files and directories)
+    static class RuntimeClasspathEntryContext extends AbstractContext {
+        @Override
+        protected HashCode fold(Collection<Map.Entry<String, Snapshotter2.Result>> results) {
+            // Make sure classpath entries have their elements sorted before combining the hashes
+            List<Map.Entry<String, Snapshotter2.Result>> sortedResults = Lists.newArrayList(results)
+            sortedResults.sort { a, b -> a.key <=> b.key }
+            super.fold(sortedResults)
+        }
+    }
+
+    // A list of WAR files (with potentially a singel element)
+    // This is kind of a workaround, as in most cases a property will only have a single WAR file
+    // but when snapshotting we only see FileCollections (even if the property's type if File).
+    static class WarList extends AbstractContext {}
+
+    // A WAR file
+    static class War extends AbstractContext {}
+
     private static final List<Rule> RUNTIME_CLASSPATH_RULES = ImmutableList.<Rule> builder()
         // Treat JAR files as classpath entries inside the classpath
         .add(new FileRule(RuntimeClasspathContext, Pattern.compile(".*\\.jar")) {

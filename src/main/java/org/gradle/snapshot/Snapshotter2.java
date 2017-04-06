@@ -25,11 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
-import static java.util.Comparator.comparing;
 
 public class Snapshotter2 {
 	public <C extends Context> C snapshot(Collection<? extends File> files, Class<C> contextType, Iterable<? extends Rule> rules) throws IOException {
@@ -444,10 +441,10 @@ public class Snapshotter2 {
 
 		@Override
 		public final HashCode fold() {
-			return fold(results.entrySet().stream());
+			return fold(results.entrySet());
 		}
 
-		protected HashCode fold(Stream<Map.Entry<String, Result>> results) {
+		protected HashCode fold(Collection<Map.Entry<String, Result>> results) {
 			Hasher hasher = Hashing.md5().newHasher();
 			results.forEach(entry -> {
 				hasher.putString(entry.getKey(), Charsets.UTF_8);
@@ -460,48 +457,35 @@ public class Snapshotter2 {
 		public String toString() {
 			return getClass().getSimpleName();
 		}
-
-		interface Result {
-			HashCode getHashCode();
-		}
-
-		static class SnapshotResult implements Result {
-			private final HashCode hashCode;
-
-			public SnapshotResult(HashCode hashCode) {
-				this.hashCode = hashCode;
-			}
-
-			@Override
-			public HashCode getHashCode() {
-				return hashCode;
-			}
-		}
-
-		static class SubContextResult implements Result {
-			private final Context subContext;
-
-			public SubContextResult(Context subContext) {
-				this.subContext = subContext;
-			}
-
-			@Override
-			public HashCode getHashCode() {
-				return subContext.fold();
-			}
-		}
 	}
 
-	static class RuntimeClasspathContext extends Snapshotter2.AbstractContext {}
+	interface Result {
+		HashCode getHashCode();
+	}
 
-	static class RuntimeClasspathEntryContext extends Snapshotter2.AbstractContext {
+	static class SnapshotResult implements Result {
+		private final HashCode hashCode;
+
+		public SnapshotResult(HashCode hashCode) {
+			this.hashCode = hashCode;
+		}
+
 		@Override
-		protected HashCode fold(Stream<Map.Entry<String, Result>> results) {
-			return super.fold(results.sorted(comparing(Map.Entry::getKey)));
+		public HashCode getHashCode() {
+			return hashCode;
 		}
 	}
 
-	static class WarList extends Snapshotter2.AbstractContext {}
+	static class SubContextResult implements Result {
+		private final Context subContext;
 
-	static class War extends Snapshotter2.AbstractContext {}
+		public SubContextResult(Context subContext) {
+			this.subContext = subContext;
+		}
+
+		@Override
+		public HashCode getHashCode() {
+			return subContext.fold();
+		}
+	}
 }
