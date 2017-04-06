@@ -7,5 +7,5 @@ public interface Context {
     void recordSnapshot(Fileish file, HashCode hash);
     <C extends Context> C recordSubContext(Fileish file, Class<C> type);
     Class<? extends Context> getType();
-    HashCode fold();
+    SnapshotResult fold();
 }

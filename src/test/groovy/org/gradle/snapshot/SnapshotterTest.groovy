@@ -7,6 +7,7 @@ import com.google.common.hash.Hasher
 import org.gradle.snapshot.contexts.AbstractContext
 import org.gradle.snapshot.contexts.Context
 import org.gradle.snapshot.contexts.Result
+import org.gradle.snapshot.contexts.SnapshotResult
 import org.gradle.snapshot.files.Directoryish
 import org.gradle.snapshot.files.Fileish
 import org.gradle.snapshot.files.FileishWithContents
@@ -32,12 +33,17 @@ import static com.google.common.io.ByteStreams.copy
 
 class SnapshotterTest extends Specification {
     // Context for runtime classpaths
-    static class RuntimeClasspathContext extends AbstractContext {}
+    static class RuntimeClasspathContext extends AbstractContext {
+        @Override
+        protected SnapshotResult fold(Collection<Map.Entry<String, Result>> results) {
+            return super.fold(results)
+        }
+    }
 
     // Context for runtime classpath entries (JAR files and directories)
     static class RuntimeClasspathEntryContext extends AbstractContext {
         @Override
-        protected HashCode fold(Collection<Map.Entry<String, Result>> results) {
+        protected SnapshotResult fold(Collection<Map.Entry<String, Result>> results) {
             // Make sure classpath entries have their elements sorted before combining the hashes
             List<Map.Entry<String, Result>> sortedResults = Lists.newArrayList(results)
             sortedResults.sort { a, b -> a.key <=> b.key }
@@ -153,7 +159,7 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: classes!fourthFile.txt - 6c99cb370b82c9c527320b35524213e6",
                 "Snapshot taken: classes!subdir/build.log - a9cca315f4b8650dccfa3d93284998ef",
                 "Snapshot taken: classes!thirdFile.txt - 3f1d3e7fb9620156f8e911fb90d89c42",
-                "Folded: RuntimeClasspathContext - a6fb5fc3061570f426ef599fa9b53a73",
+                "Folded: RuntimeClasspathContext - a6fb5fc3061570f426ef599fa9b53a73 - [fourthFile.txt, subdir/build.log, thirdFile.txt]",
         ]
     }
 
@@ -181,7 +187,7 @@ class SnapshotterTest extends Specification {
         snapshot([zipFile], RuntimeClasspathContext, rules) == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
-                "Folded: RuntimeClasspathContext - 1e985e6e85f4cc31ea24b8abd17e42c5",
+                "Folded: RuntimeClasspathContext - 1e985e6e85f4cc31ea24b8abd17e42c5 - []",
         ]
     }
 
@@ -230,7 +236,7 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/guava.jar!version.properties - 9a0de96b30c230abc8d5263b4c9e22a4",
                 "Snapshot taken: web-app.war!README.md - c47c7c7383225ab55ff591cb59c41e6b",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/core.jar!org/gradle/Util.class - 23e8a4b4f7cc1898ef12b4e6e48852bb",
-                "Folded: WarList - 61091b4979095cb64ef7e4c5bede55c2",
+                "Folded: WarList - 61091b4979095cb64ef7e4c5bede55c2 - []",
         ]
     }
 
@@ -268,6 +274,12 @@ class SnapshotterTest extends Specification {
             println event
         }
 
+        private void report(String type, String filePath, Result result) {
+            def event = "$type: ${getFullPath(filePath)} - ${result.hashCode} - ${result.snapshots*.file*.path}"
+            events.add(event)
+            println event
+        }
+
         private String getFullPath(String filePath) {
             return path ? "$path!$filePath" : filePath
         }
@@ -284,7 +296,7 @@ class SnapshotterTest extends Specification {
         }
 
         @Override
-        HashCode fold() {
+        SnapshotResult fold() {
             def result = delegate.fold()
             report("Folded", getType().simpleName, result)
             return result
