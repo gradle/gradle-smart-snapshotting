@@ -21,36 +21,36 @@ import java.util.stream.Collectors;
 // TODO: Handle junk files on classpaths, and in WAR files
 // TODO: Demonstrate properties file filtering
 public class Snapshotter {
-	public <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
-		process(files.stream()
-				.map(file -> Physical.of(file.getName(), file))
-				.collect(Collectors.toList()), context, rules);
+    public <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
+        process(files.stream()
+                .map(file -> Physical.of(file.getName(), file))
+                .collect(Collectors.toList()), context, rules);
         return context;
     }
 
-	private void process(Collection<? extends Fileish> files, Context rootContext, Iterable<? extends Rule> rules) throws IOException {
-		Deque<Operation> queue = Queues.newArrayDeque();
-		SnapshotterState state = new SnapshotterState(rootContext, rules);
+    private void process(Collection<? extends Fileish> files, Context rootContext, Iterable<? extends Rule> rules) throws IOException {
+        Deque<Operation> queue = Queues.newArrayDeque();
+        SnapshotterState state = new SnapshotterState(rootContext, rules);
         queue.addLast(new ApplyTo(files, rootContext));
 
-		List<Operation> dependencies = Lists.newArrayList();
+        List<Operation> dependencies = Lists.newArrayList();
 
-		while (!queue.isEmpty()) {
-			Operation operation = queue.peek();
-			operation.setContextIfNecessary(state);
+        while (!queue.isEmpty()) {
+            Operation operation = queue.peek();
+            operation.setContextIfNecessary(state);
 
-			dependencies.clear();
-			boolean done = operation.execute(state, dependencies);
+            dependencies.clear();
+            boolean done = operation.execute(state, dependencies);
 
-			int dependencyCount = dependencies.size();
-			if (done || dependencyCount == 0) {
-				operation.close();
-				queue.remove();
-			}
+            int dependencyCount = dependencies.size();
+            if (done || dependencyCount == 0) {
+                operation.close();
+                queue.remove();
+            }
 
-			for (int idx = dependencyCount - 1; idx >= 0; idx--) {
-				queue.push(dependencies.get(idx));
-			}
-		}
-	}
+            for (int idx = dependencyCount - 1; idx >= 0; idx--) {
+                queue.push(dependencies.get(idx));
+            }
+        }
+    }
 }
