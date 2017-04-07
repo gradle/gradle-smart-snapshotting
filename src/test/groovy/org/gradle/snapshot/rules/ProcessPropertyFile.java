@@ -1,7 +1,7 @@
 package org.gradle.snapshot.rules;
 
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
+import com.google.common.base.Charsets;
+import com.google.common.collect.Lists;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.gradle.snapshot.contexts.Context;
@@ -9,9 +9,11 @@ import org.gradle.snapshot.files.FileishWithContents;
 import org.gradle.snapshot.operations.Operation;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.Charset;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -19,24 +21,30 @@ import java.util.regex.Pattern;
 public class ProcessPropertyFile<C extends Context> extends Rule<FileishWithContents, C> {
     private static final Pattern PROPERTY_FILE = Pattern.compile(".*\\.properties");
     private final Set<String> ignoredKeys;
+    private final Charset encoding;
 
-    public ProcessPropertyFile(Class<C> contextType, Set<String> ignoredKeys) {
+    public ProcessPropertyFile(Class<C> contextType, Set<String> ignoredKeys, Charset encoding) {
         super(FileishWithContents.class, contextType, PROPERTY_FILE);
         this.ignoredKeys = ignoredKeys;
+        this.encoding = encoding;
     }
 
     @Override
     protected void doProcess(FileishWithContents file, C context, List<Operation> operations) throws IOException {
         Properties properties = new Properties();
-        properties.load(file.open());
-        ImmutableSortedMap<String, String> propertiesMap = ImmutableSortedMap.copyOf(Maps.fromProperties(properties));
+        try (Reader reader = new InputStreamReader(file.open(), encoding)) {
+            properties.load(reader);
+        }
+        List<String> propertyNames = Lists.newArrayList(properties.stringPropertyNames());
+        Collections.sort(propertyNames);
         Hasher hasher = Hashing.md5().newHasher();
-        for (Map.Entry<String, String> property : propertiesMap.entrySet()) {
-            String key = property.getKey();
-            String value = property.getValue();
-            if (!ignoredKeys.contains(key)) {
-                hasher.putString(key + "=" + value + "\n", StandardCharsets.UTF_8);
+        for (String propertyName : propertyNames) {
+            if (ignoredKeys.contains(propertyName)) {
+                continue;
             }
+            String value = properties.getProperty(propertyName);
+            hasher.putString(propertyName, Charsets.UTF_8);
+            hasher.putString(value, Charsets.UTF_8);
         }
         context.recordSnapshot(file, hasher.hash());
     }

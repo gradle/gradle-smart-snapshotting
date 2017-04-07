@@ -1,5 +1,6 @@
 package org.gradle.snapshot
 
+import com.google.common.base.Charsets
 import com.google.common.collect.ImmutableCollection
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.Lists
@@ -274,7 +275,7 @@ class SnapshotterTest extends Specification {
 
     def "can ignore ordering, comments and commitId in properties"() {
         def rules = ImmutableList.builder()
-                .add(new ProcessPropertyFile(Context.class, ['commitId'] as Set))
+                .add(new ProcessPropertyFile(Context.class, ['commitId'] as Set, Charsets.ISO_8859_1))
                 .addAll(RUNTIME_CLASSPATH_RULES)
                 .build()
 
@@ -305,17 +306,17 @@ class SnapshotterTest extends Specification {
         def (hash, events, physicalSnapshots) = snapshot([guavaJar, directory], RuntimeClasspathContext, rules)
 
         then:
-        def expectedHash = "ddd2a51ecf316fa16602feec7c556847"
+        def expectedHash = "c2bb9f896e5429aa6aa318f57d98f511"
         def expectedEvents = [
                 "Snapshot taken: guava.jar!com/google/common/collection/Lists.class - 691d1860ec58dd973e803e209697d065",
                 "Snapshot taken: guava.jar!com/google/common/collection/Sets.class - 86f5baf708c6c250204451eb89736947",
-                "Snapshot taken: guava.jar!version.properties - 607e2d3a119dfe832d937ce579ef1079",
-                "Snapshot taken: classpathEntry!version-info.properties - 795c402213e860112745ff2a74b21a37",
-                "Folded: RuntimeClasspathContext - ddd2a51ecf316fa16602feec7c556847"
+                "Snapshot taken: guava.jar!version.properties - 5f21ccb853dfd07a63268f2d00a3a4bd",
+                "Snapshot taken: classpathEntry!version-info.properties - 78705221d74193e66807b0a962508a63",
+                "Folded: RuntimeClasspathContext - c2bb9f896e5429aa6aa318f57d98f511",
         ]
         def expectedPhysicalSnapshots = [
-                "guava.jar (''): ced1c18e2abdd7fec3d936d846bc789c",
-                "version-info.properties: 795c402213e860112745ff2a74b21a37",
+                "guava.jar (''): 3ebcd5148c24358c5420a8e7ec23d9ff",
+                "version-info.properties: 78705221d74193e66807b0a962508a63",
                 "classpathEntry (''): 28766b4be065d0c806c2e9c9d914af48"
         ]
         events == expectedEvents
