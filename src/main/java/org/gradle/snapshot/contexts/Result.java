@@ -16,7 +16,7 @@ public abstract class Result {
         this.file = file;
     }
 
-    public HashCode fold(ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
+    public HashCode fold(String normalizedPath, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
         HashCode hashCode = foldInternal(physicalSnapshots);
         if (file instanceof Physical) {
             HashCode physicalHash;
@@ -27,7 +27,7 @@ public abstract class Result {
             } else {
                 physicalHash = hashCode;
             }
-            physicalSnapshots.add(new DefaultPhysicalSnapshot((Physical) file, physicalHash));
+            physicalSnapshots.add(new DefaultPhysicalSnapshot((Physical) file, normalizedPath, physicalHash));
         }
         return hashCode;
     }
