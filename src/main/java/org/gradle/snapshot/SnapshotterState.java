@@ -1,20 +1,18 @@
 package org.gradle.snapshot;
 
-import com.google.common.collect.Maps;
-import com.google.common.hash.HashCode;
+import org.gradle.snapshot.cache.PhysicalHashCache;
 import org.gradle.snapshot.contexts.Context;
 import org.gradle.snapshot.rules.Rule;
-
-import java.util.Map;
 
 public class SnapshotterState {
     private Context context;
     private final Iterable<? extends Rule<?, ?>> rules;
-    private final Map<HashCode, HashCode> hashCache = Maps.newHashMap();
+    private final PhysicalHashCache hashCache;
 
-    public SnapshotterState(Context context, Iterable<? extends Rule<?, ?>> rules) {
+    public SnapshotterState(Context context, Iterable<? extends Rule<?, ?>> rules, PhysicalHashCache hashCache) {
         this.context = context;
         this.rules = rules;
+        this.hashCache = hashCache;
     }
 
     public Context getContext() {
@@ -27,5 +25,9 @@ public class SnapshotterState {
 
     public Iterable<? extends Rule<?, ?>> getRules() {
         return rules;
+    }
+
+    public PhysicalHashCache getHashCache() {
+        return hashCache;
     }
 }

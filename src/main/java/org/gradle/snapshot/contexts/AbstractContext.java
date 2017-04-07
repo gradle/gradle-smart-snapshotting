@@ -1,13 +1,11 @@
 package org.gradle.snapshot.contexts;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.gradle.snapshot.files.Fileish;
-import org.gradle.snapshot.files.PhysicalSnapshot;
 
 import java.util.Collection;
 import java.util.Map;
@@ -48,7 +46,7 @@ public abstract class AbstractContext implements Context {
     }
 
     @Override
-    public final HashCode fold(ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
+    public final HashCode fold(PhysicalSnapshotCollector physicalSnapshots) {
         return fold(results.entrySet(), physicalSnapshots);
     }
 
@@ -56,16 +54,16 @@ public abstract class AbstractContext implements Context {
         return key;
     }
 
-    protected HashCode fold(Collection<Map.Entry<String, Result>> results, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
+    protected HashCode fold(Collection<Map.Entry<String, Result>> results, PhysicalSnapshotCollector physicalSnapshots) {
         Hasher hasher = Hashing.md5().newHasher();
-        results.forEach(entry -> {
+        for (Map.Entry<String, Result> entry : results) {
             String key = entry.getKey();
             Result result = entry.getValue();
 
             String normalizedPath = normalize(key);
             hasher.putString(normalizedPath, Charsets.UTF_8);
             hasher.putBytes(result.fold(normalizedPath, physicalSnapshots).asBytes());
-        });
+        }
         return hasher.hash();
     }
 

@@ -1,13 +1,10 @@
 package org.gradle.snapshot.contexts;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.hash.HashCode;
-import org.gradle.snapshot.files.DefaultPhysicalSnapshot;
 import org.gradle.snapshot.files.Fileish;
 import org.gradle.snapshot.files.MissingPhysicalFile;
 import org.gradle.snapshot.files.Physical;
 import org.gradle.snapshot.files.PhysicalDirectory;
-import org.gradle.snapshot.files.PhysicalSnapshot;
 
 public abstract class Result {
     private final Fileish file;
@@ -16,7 +13,7 @@ public abstract class Result {
         this.file = file;
     }
 
-    public HashCode fold(String normalizedPath, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
+    public HashCode fold(String normalizedPath, PhysicalSnapshotCollector physicalSnapshots) {
         HashCode hashCode = foldInternal(physicalSnapshots);
         if (file instanceof Physical) {
             HashCode physicalHash;
@@ -27,10 +24,10 @@ public abstract class Result {
             } else {
                 physicalHash = hashCode;
             }
-            physicalSnapshots.add(new DefaultPhysicalSnapshot((Physical) file, normalizedPath, physicalHash));
+            physicalSnapshots.collectSnapshot((Physical) file, normalizedPath, physicalHash);
         }
         return hashCode;
     }
 
-    public abstract HashCode foldInternal(ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots);
+    public abstract HashCode foldInternal(PhysicalSnapshotCollector physicalSnapshots);
 }

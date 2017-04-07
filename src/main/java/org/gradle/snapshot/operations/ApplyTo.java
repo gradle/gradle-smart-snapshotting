@@ -1,8 +1,10 @@
 package org.gradle.snapshot.operations;
 
+import com.google.common.hash.HashCode;
 import org.gradle.snapshot.SnapshotterState;
 import org.gradle.snapshot.contexts.Context;
 import org.gradle.snapshot.files.Fileish;
+import org.gradle.snapshot.files.PhysicalFile;
 import org.gradle.snapshot.rules.Rule;
 
 import java.io.IOException;
@@ -25,6 +27,14 @@ public class ApplyTo extends Operation {
     public boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
         Context context = getContext();
         for (Fileish file : files) {
+            if (file instanceof PhysicalFile) {
+                HashCode cachedHash = state.getHashCache().getCachedHashFor((PhysicalFile) file);
+                if (cachedHash != null) {
+                    getContext().recordSnapshot(file, cachedHash);
+                    continue;
+                }
+            }
+
             Rule<?, ?> matchedRule = null;
             for (Rule<?, ?> rule : state.getRules()) {
                 if (rule.matches(file, context)) {
