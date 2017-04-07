@@ -9,15 +9,16 @@ import org.gradle.snapshot.contexts.Result
 import org.gradle.snapshot.files.Directoryish
 import org.gradle.snapshot.files.Fileish
 import org.gradle.snapshot.files.FileishWithContents
+import org.gradle.snapshot.files.MissingPhysicalFile
 import org.gradle.snapshot.files.PhysicalDirectory
+import org.gradle.snapshot.files.PhysicalSnapshot
 import org.gradle.snapshot.operations.Operation
 import org.gradle.snapshot.operations.ProcessDirectory
 import org.gradle.snapshot.operations.ProcessZip
 import org.gradle.snapshot.operations.SetContext
-import org.gradle.snapshot.rules.DirectoryRule
-import org.gradle.snapshot.rules.FileRule
+import org.gradle.snapshot.rules.ContentRule
+import org.gradle.snapshot.rules.PhysicalDirectoryRule
 import org.gradle.snapshot.rules.Rule
-import org.gradle.snapshot.rules.SnapshotFileRule
 import org.gradle.snapshot.util.TestFile
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
@@ -33,15 +34,18 @@ class SnapshotterTest extends Specification {
     // Context for runtime classpath entries (JAR files and directories)
     static class RuntimeClasspathEntryContext extends AbstractContext {
         @Override
-        protected HashCode fold(Collection<Map.Entry<String, Result>> results) {
+        protected HashCode fold(Collection<Map.Entry<String, Result>> results, Collection<PhysicalSnapshot> physicalSnapshots) {
             // Make sure classpath entries have their elements sorted before combining the hashes
             List<Map.Entry<String, Result>> sortedResults = Lists.newArrayList(results)
             sortedResults.sort { a, b -> a.key <=> b.key }
-            super.fold(sortedResults)
+            super.fold(sortedResults, physicalSnapshots)
         }
     }
 
-    // A list of WAR files (with potentially a singel element)
+    // No-fluff context for regular property snapshotting
+    static class DefaultContext extends AbstractContext {}
+
+    // A list of WAR files (with potentially a single element)
     // This is kind of a workaround, as in most cases a property will only have a single WAR file
     // but when snapshotting we only see FileCollections (even if the property's type if File).
     static class WarList extends AbstractContext {}
@@ -49,9 +53,27 @@ class SnapshotterTest extends Specification {
     // A WAR file
     static class War extends AbstractContext {}
 
+    private static final List<Rule> BASIC_RULES = ImmutableList.<Rule> builder()
+        // Hash files in any context
+        .add(new Rule(Fileish.class, Context.class, null) {
+            @Override
+            void process(Fileish file, Context context, List<Operation> operations) throws IOException {
+                if (file instanceof FileishWithContents) {
+                    context.recordSnapshot(file, file.getContentHash())
+                } else if (file instanceof Directoryish) {
+                    context.recordSnapshot(file, Directoryish.HASH)
+                } else if (file instanceof MissingPhysicalFile) {
+                    context.recordSnapshot(file, MissingPhysicalFile.HASH)
+                } else {
+                    throw new IllegalStateException("Unknown file type: $file (${file.getClass().name})")
+                }
+            }
+        })
+        .build()
+
     private static final List<Rule> RUNTIME_CLASSPATH_RULES = ImmutableList.<Rule> builder()
         // Treat JAR files as classpath entries inside the classpath
-        .add(new FileRule(RuntimeClasspathContext, Pattern.compile(".*\\.jar")) {
+        .add(new ContentRule(RuntimeClasspathContext, Pattern.compile(".*\\.jar")) {
             @Override
             protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.recordSubContext(file, RuntimeClasspathEntryContext)
@@ -59,7 +81,7 @@ class SnapshotterTest extends Specification {
             }
         })
         // Treat directories as classpath entries inside the classpath
-        .add(new DirectoryRule(RuntimeClasspathContext, null) {
+        .add(new PhysicalDirectoryRule(RuntimeClasspathContext, null) {
             @Override
             protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.recordSubContext(directory, RuntimeClasspathEntryContext)
@@ -72,13 +94,12 @@ class SnapshotterTest extends Specification {
             void process(Fileish file, Context context, List operations) throws IOException {
             }
         })
-        // Hash any file in any context
-        .add(new SnapshotFileRule(Context, null))
+        .addAll(BASIC_RULES)
         .build()
 
     private static final List<Rule> WAR_FILE_RULES = ImmutableList.<Rule> builder()
         // Handle WAR files as WAR files
-        .add(new FileRule(WarList, Pattern.compile(".*\\.war")) {
+        .add(new ContentRule(WarList, Pattern.compile(".*\\.war")) {
             @Override
             protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.recordSubContext(file, War)
@@ -86,7 +107,7 @@ class SnapshotterTest extends Specification {
             }
         })
         // Handle directories as exploded WAR files
-        .add(new DirectoryRule(WarList, null) {
+        .add(new PhysicalDirectoryRule(WarList, null) {
             @Override
             protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
                 def subContext = context.recordSubContext(directory, War)
@@ -116,6 +137,37 @@ class SnapshotterTest extends Specification {
     TemporaryFolder temporaryFolder = new TemporaryFolder()
     Snapshotter snapshotter = new Snapshotter()
 
+    def "snapshots simple files"() {
+        def inputs = [
+            file('firstFile.txt').setText("Some text"),
+            file('secondFile.txt').setText("Second File"),
+            file('missingFile.txt'),
+            file('subdir').createDir()
+                .file('someOtherFile.log').setText("File in subdir"),
+            file('emptydir').createDir(),
+        ]
+
+        when:
+        def (hash, events, physicalSnapshots) = snapshot(inputs, DefaultContext, BASIC_RULES)
+        then:
+        hash == "482a3974d523dfaa582f53020835be4b"
+        events == [
+            "Snapshot taken: firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
+            "Snapshot taken: secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
+            "Snapshot taken: missingFile.txt - $MissingPhysicalFile.HASH",
+            "Snapshot taken: someOtherFile.log - a9cca315f4b8650dccfa3d93284998ef",
+            "Snapshot taken: emptydir - $Directoryish.HASH",
+            "Folded: DefaultContext - 482a3974d523dfaa582f53020835be4b",
+        ]
+        physicalSnapshots == [
+            "firstFile.txt: 9db5682a4d778ca2cb79580bdb67083f",
+            "secondFile.txt: 82e72efeddfca85ddb625e88af3fe973",
+            "missingFile.txt: $MissingPhysicalFile.HASH",
+            "someOtherFile.log: a9cca315f4b8650dccfa3d93284998ef",
+            "emptydir: $Directoryish.HASH",
+        ]
+    }
+
     def "snapshots runtime classpath files"() {
         def zipFile = file('zipContents').create {
             file('firstFile.txt').text = "Some text"
@@ -132,8 +184,11 @@ class SnapshotterTest extends Specification {
             }
         }
 
-        expect:
-        snapshot([zipFile, classes], RuntimeClasspathContext, RUNTIME_CLASSPATH_RULES) == [
+        when:
+        def (hash, events, physicalSnapshots) = snapshot([zipFile, classes], RuntimeClasspathContext, RUNTIME_CLASSPATH_RULES)
+        then:
+        hash == "a6fb5fc3061570f426ef599fa9b53a73"
+        events == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
                 "Snapshot taken: library.jar!subdir/someOtherFile.log - a9cca315f4b8650dccfa3d93284998ef",
@@ -141,6 +196,13 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: classes!subdir/build.log - a9cca315f4b8650dccfa3d93284998ef",
                 "Snapshot taken: classes!thirdFile.txt - 3f1d3e7fb9620156f8e911fb90d89c42",
                 "Folded: RuntimeClasspathContext - a6fb5fc3061570f426ef599fa9b53a73",
+        ]
+        physicalSnapshots == [
+            "library.jar: 429be5439dc0cf3eacb9a48563f00a52",
+            "fourthFile.txt: 6c99cb370b82c9c527320b35524213e6",
+            "subdir/build.log: a9cca315f4b8650dccfa3d93284998ef",
+            "thirdFile.txt: 3f1d3e7fb9620156f8e911fb90d89c42",
+            "classes: $Directoryish.HASH",
         ]
     }
 
@@ -155,7 +217,7 @@ class SnapshotterTest extends Specification {
 
         def rules = ImmutableList.builder()
             // Ignore *.log files inside classpath entries
-            .add(new FileRule(RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
+            .add(new ContentRule(RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
                 @Override
                 void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
                     // Do nothing with the file
@@ -164,11 +226,17 @@ class SnapshotterTest extends Specification {
             .addAll(RUNTIME_CLASSPATH_RULES)
             .build()
 
-        expect:
-        snapshot([zipFile], RuntimeClasspathContext, rules) == [
+        when:
+        def (hash, events, physicalSnapshots) = snapshot([zipFile], RuntimeClasspathContext, rules)
+        then:
+        hash == "1e985e6e85f4cc31ea24b8abd17e42c5"
+        events == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
                 "Folded: RuntimeClasspathContext - 1e985e6e85f4cc31ea24b8abd17e42c5",
+        ]
+        physicalSnapshots == [
+                "library.jar: dbd9b70c18768d3199c41efef40c73c0",
         ]
     }
 
@@ -209,8 +277,11 @@ class SnapshotterTest extends Specification {
         warFileOut << coreJar.bytes
         warFileOut.close()
 
-        expect:
-        snapshot([warFile], WarList, WAR_FILE_RULES) == [
+        when:
+        def (hash, events, physicalSnapshots) = snapshot([warFile], WarList, WAR_FILE_RULES)
+        then:
+        hash == "61091b4979095cb64ef7e4c5bede55c2"
+        events == [
                 "Snapshot taken: web-app.war!WEB-INF/web.xml - 672d3ef8a00bcece517a3fed0f06804b",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/guava.jar!com/google/common/collection/Lists.class - 691d1860ec58dd973e803e209697d065",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/guava.jar!com/google/common/collection/Sets.class - 86f5baf708c6c250204451eb89736947",
@@ -219,13 +290,17 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/core.jar!org/gradle/Util.class - 23e8a4b4f7cc1898ef12b4e6e48852bb",
                 "Folded: WarList - 61091b4979095cb64ef7e4c5bede55c2",
         ]
+        physicalSnapshots == [
+            "web-app.war: 7124d242b1000e1c054da52d489a07db"
+        ]
     }
 
-    private List<String> snapshot(Collection<File> files, Class<? extends Context> contextType, Iterable<Rule> rules) {
-        def events = []
+    private def snapshot(Collection<? extends File> files, Class<? extends Context> contextType, Iterable<Rule> rules) {
+        List<String> events = []
+        List<PhysicalSnapshot> physicalSnapshots = []
         def context = new RecordingContextWrapper(null, events, contextType.newInstance())
-        snapshotter.snapshot(files, context, rules).fold()
-        return events
+        def hash = snapshotter.snapshot(files, context, rules).fold(physicalSnapshots)
+        return [hash.toString(), events, physicalSnapshots*.toString()]
     }
 
     private static class RecordingContextWrapper implements Context {
@@ -271,10 +346,10 @@ class SnapshotterTest extends Specification {
         }
 
         @Override
-        HashCode fold() {
-            def result = delegate.fold()
-            report("Folded", getType().simpleName, result)
-            return result
+        HashCode fold(Collection<PhysicalSnapshot> physicalSnapshots) {
+            def hashCode = delegate.fold(physicalSnapshots)
+            report("Folded", getType().simpleName, hashCode)
+            return hashCode
         }
 
         @Override

@@ -1,16 +1,21 @@
 package org.gradle.snapshot.contexts;
 
 import com.google.common.hash.HashCode;
+import org.gradle.snapshot.files.Fileish;
+import org.gradle.snapshot.files.PhysicalSnapshot;
 
-public class SnapshotResult implements Result {
+import java.util.Collection;
+
+public class SnapshotResult extends Result {
     private final HashCode hashCode;
 
-    public SnapshotResult(HashCode hashCode) {
+    public SnapshotResult(Fileish file, HashCode hashCode) {
+        super(file);
         this.hashCode = hashCode;
     }
 
     @Override
-    public HashCode getHashCode() {
+    public HashCode foldInternal(Collection<PhysicalSnapshot> physicalSnapshots) {
         return hashCode;
     }
 }

@@ -7,6 +7,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.gradle.snapshot.files.Fileish;
+import org.gradle.snapshot.files.PhysicalSnapshot;
 
 import java.util.Collection;
 import java.util.Map;
@@ -22,8 +23,7 @@ public abstract class AbstractContext implements Context {
 
     @Override
     public void recordSnapshot(Fileish file, HashCode hash) {
-        String path = file.getPath();
-        results.put(path, new SnapshotResult(hash));
+        results.put(file.getPath(), new SnapshotResult(file, hash));
     }
 
     @Override
@@ -37,7 +37,8 @@ public abstract class AbstractContext implements Context {
             } catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
-            results.put(path, new SubContextResult(subContext));
+            final SubContextResult subContextResult = new SubContextResult(file, subContext);
+            results.put(path, subContextResult);
         } else if (result instanceof SubContextResult) {
             Context resultSubContext = ((SubContextResult) result).getSubContext();
             subContext = type.cast(resultSubContext);
@@ -48,15 +49,18 @@ public abstract class AbstractContext implements Context {
     }
 
     @Override
-    public final HashCode fold() {
-        return fold(results.entrySet());
+    public final HashCode fold(Collection<PhysicalSnapshot> physicalSnapshots) {
+        return fold(results.entrySet(), physicalSnapshots);
     }
 
-    protected HashCode fold(Collection<Map.Entry<String, Result>> results) {
+    protected HashCode fold(Collection<Map.Entry<String, Result>> results, Collection<PhysicalSnapshot> physicalSnapshots) {
         Hasher hasher = Hashing.md5().newHasher();
         results.forEach(entry -> {
-            hasher.putString(entry.getKey(), Charsets.UTF_8);
-            hasher.putBytes(entry.getValue().getHashCode().asBytes());
+            String key = entry.getKey();
+            Result result = entry.getValue();
+
+            hasher.putString(key, Charsets.UTF_8);
+            hasher.putBytes(result.fold(physicalSnapshots).asBytes());
         });
         return hasher.hash();
     }

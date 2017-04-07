@@ -1,11 +1,16 @@
 package org.gradle.snapshot.contexts;
 
 import com.google.common.hash.HashCode;
+import org.gradle.snapshot.files.Fileish;
+import org.gradle.snapshot.files.PhysicalSnapshot;
 
-public class SubContextResult implements Result {
+import java.util.Collection;
+
+public class SubContextResult extends Result {
     private final Context subContext;
 
-    public SubContextResult(Context subContext) {
+    public SubContextResult(Fileish file, Context subContext) {
+        super(file);
         this.subContext = subContext;
     }
 
@@ -14,7 +19,7 @@ public class SubContextResult implements Result {
     }
 
     @Override
-    public HashCode getHashCode() {
-        return subContext.fold();
+    public HashCode foldInternal(Collection<PhysicalSnapshot> physicalSnapshots) {
+        return subContext.fold(physicalSnapshots);
     }
 }

@@ -9,8 +9,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.regex.Pattern;
 
-public abstract class FileRule extends Rule {
-    public FileRule(Class<? extends Context> contextType, Pattern pathMatcher) {
+public abstract class ContentRule extends Rule {
+    public ContentRule(Class<? extends Context> contextType, Pattern pathMatcher) {
         super(FileishWithContents.class, contextType, pathMatcher);
     }
 
