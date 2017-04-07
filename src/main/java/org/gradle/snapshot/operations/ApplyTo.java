@@ -25,8 +25,8 @@ public class ApplyTo extends Operation {
     public boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
         Context context = getContext();
         for (Fileish file : files) {
-            Rule matchedRule = null;
-            for (Rule rule : state.getRules()) {
+            Rule<?, ?> matchedRule = null;
+            for (Rule<?, ?> rule : state.getRules()) {
                 if (rule.matches(file, context)) {
                     matchedRule = rule;
                     break;

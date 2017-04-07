@@ -13,21 +13,19 @@ import org.gradle.snapshot.files.FileishWithContents
 import org.gradle.snapshot.files.MissingPhysicalFile
 import org.gradle.snapshot.files.PhysicalDirectory
 import org.gradle.snapshot.files.PhysicalSnapshot
-import org.gradle.snapshot.operations.Operation
 import org.gradle.snapshot.operations.ProcessDirectory
 import org.gradle.snapshot.operations.ProcessZip
 import org.gradle.snapshot.operations.SetContext
-import org.gradle.snapshot.rules.ContentRule
-import org.gradle.snapshot.rules.PhysicalDirectoryRule
 import org.gradle.snapshot.rules.ProcessPropertyFile
 import org.gradle.snapshot.rules.Rule
 import org.gradle.snapshot.util.TestFile
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
 
-import java.util.regex.Pattern
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+
+import static org.gradle.snapshot.rules.RuleBuilder.rule
 
 class SnapshotterTest extends Specification {
     // Context for runtime classpaths
@@ -62,80 +60,55 @@ class SnapshotterTest extends Specification {
 
     private static final List<Rule> BASIC_RULES = ImmutableList.<Rule> builder()
         // Hash files in any context
-        .add(new Rule(Fileish.class, Context.class, null) {
-            @Override
-            void process(Fileish file, Context context, List<Operation> operations) throws IOException {
-                if (file instanceof FileishWithContents) {
-                    context.recordSnapshot(file, file.getContentHash())
-                } else if (file instanceof Directoryish) {
-                    context.recordSnapshot(file, Directoryish.HASH)
-                } else if (file instanceof MissingPhysicalFile) {
-                    context.recordSnapshot(file, MissingPhysicalFile.HASH)
-                } else {
-                    throw new IllegalStateException("Unknown file type: $file (${file.getClass().name})")
-                }
+        .add(rule().withType(Fileish) { file, context, operations ->
+            if (file instanceof FileishWithContents) {
+                context.recordSnapshot(file, file.getContentHash())
+            } else if (file instanceof Directoryish) {
+                context.recordSnapshot(file, Directoryish.HASH)
+            } else if (file instanceof MissingPhysicalFile) {
+                context.recordSnapshot(file, MissingPhysicalFile.HASH)
+            } else {
+                throw new IllegalStateException("Unknown file type: $file (${file.getClass().name})")
             }
         })
         .build()
 
     private static final List<Rule> RUNTIME_CLASSPATH_RULES = ImmutableList.<Rule> builder()
         // Treat JAR files as classpath entries inside the classpath
-        .add(new ContentRule(RuntimeClasspathContext, Pattern.compile(".*\\.jar")) {
-            @Override
-            protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.recordSubContext(file, RuntimeClasspathEntryContext)
-                operations.add(new ProcessZip(file, subContext))
-            }
+        .add(rule().in(RuntimeClasspathContext).withType(FileishWithContents).withExtension("jar") { file, context, operations ->
+            def subContext = context.recordSubContext(file, RuntimeClasspathEntryContext)
+            operations.add(new ProcessZip(file, subContext))
         })
         // Treat directories as classpath entries inside the classpath
-        .add(new PhysicalDirectoryRule(RuntimeClasspathContext, null) {
-            @Override
-            protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.recordSubContext(directory, RuntimeClasspathEntryContext)
-                operations.add(new ProcessDirectory(directory, subContext))
-            }
+        .add(rule().in(RuntimeClasspathContext).withType(PhysicalDirectory) { directory, context, operations ->
+            def subContext = context.recordSubContext(directory, RuntimeClasspathEntryContext)
+            operations.add(new ProcessDirectory(directory, subContext))
         })
         // Ignore empty directories inside classpath entries
-        .add(new Rule(Directoryish, RuntimeClasspathEntryContext, null) {
-            @Override
-            void process(Fileish file, Context context, List operations) throws IOException {
-            }
+        .add(rule().in(RuntimeClasspathEntryContext).withType(Directoryish) { directory, context, operations ->
         })
         .addAll(BASIC_RULES)
         .build()
 
     private static final List<Rule> WAR_FILE_RULES = ImmutableList.<Rule> builder()
         // Handle WAR files as WAR files
-        .add(new ContentRule(WarList, Pattern.compile(".*\\.war")) {
-            @Override
-            protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.recordSubContext(file, War)
-                operations.add(new ProcessZip(file, subContext))
-            }
+        .add(rule().in(WarList).withType(FileishWithContents).withExtension("war") { file, context, operations ->
+            def subContext = context.recordSubContext(file, War)
+            operations.add(new ProcessZip(file, subContext))
         })
         // Handle directories as exploded WAR files
         // TODO: We could allow directories in zips, too
-        .add(new PhysicalDirectoryRule(WarList, null) {
-            @Override
-            protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.recordSubContext(directory, War)
-                operations.add(new ProcessDirectory(directory, subContext))
-            }
+        .add(rule().in(WarList).withType(PhysicalDirectory) { directory, context, operations ->
+            def subContext = context.recordSubContext(directory, War)
+            operations.add(new ProcessDirectory(directory, subContext))
         })
         // Handle WEB-INF/lib as a runtime classpath
-        .add(new Rule(Directoryish, War, Pattern.compile("WEB-INF/lib")) {
-            @Override
-            void process(Fileish file, Context context, List<Operation> operations) throws IOException {
-                def subContext = context.recordSubContext(file, RuntimeClasspathContext)
-                operations.add(new SetContext(subContext))
-            }
+        .add(rule().in(War).withType(Directoryish).matching("WEB-INF/lib") { directory, context, operations ->
+            def subContext = context.recordSubContext(directory, RuntimeClasspathContext)
+            operations.add(new SetContext(subContext))
         })
         // Ignore empty directories in WAR files
-        .add(new Rule(Directoryish, War, null) {
-            @Override
-            void process(Fileish file, Context context, List operations) throws IOException {
-                // Ignore empty directories inside WAR files
-            }
+        .add(rule().in(War).withType(Directoryish) { directory, context, operations ->
         })
         // Handle runtime classpaths as usual
         .addAll(RUNTIME_CLASSPATH_RULES)
@@ -225,11 +198,7 @@ class SnapshotterTest extends Specification {
 
         def rules = ImmutableList.builder()
             // Ignore *.log files inside classpath entries
-            .add(new ContentRule(RuntimeClasspathEntryContext, Pattern.compile(".*\\.log")) {
-                @Override
-                void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
-                    // Do nothing with the file
-                }
+            .add(rule().in(RuntimeClasspathEntryContext).withExtension("log") { file, context, operations ->
             })
             .addAll(RUNTIME_CLASSPATH_RULES)
             .build()
@@ -305,7 +274,6 @@ class SnapshotterTest extends Specification {
 
     def "can ignore ordering, comments and commitId in properties"() {
         def rules = ImmutableList.builder()
-        // Ignore *.log files inside classpath entries
                 .add(new ProcessPropertyFile(Context.class, ['commitId'] as Set))
                 .addAll(RUNTIME_CLASSPATH_RULES)
                 .build()
@@ -376,7 +344,7 @@ class SnapshotterTest extends Specification {
         physicalSnapshots == expectedPhysicalSnapshots
     }
 
-    private def snapshot(Collection<? extends File> files, Class<? extends Context> contextType, Iterable<Rule> rules) {
+    private def snapshot(Collection<? extends File> files, Class<? extends Context> contextType, Iterable<Rule<? extends Fileish, ? extends Context>> rules) {
         List<String> events = []
         ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots = ImmutableList.builder()
         def context = new RecordingContextWrapper(null, events, contextType.newInstance())

@@ -8,12 +8,12 @@ import java.io.IOException;
 import java.util.List;
 import java.util.regex.Pattern;
 
-public abstract class Rule {
-    private final Class<? extends Context> contextType;
-    private final Class<? extends Fileish> fileType;
+public abstract class Rule<F extends Fileish, C extends Context> {
+    private final Class<F> fileType;
+    private final Class<C> contextType;
     private final Pattern pathMatcher;
 
-    public Rule(Class<? extends Fileish> fileType, Class<? extends Context> contextType, Pattern pathMatcher) {
+    public Rule(Class<F> fileType, Class<C> contextType, Pattern pathMatcher) {
         this.contextType = contextType;
         this.fileType = fileType;
         this.pathMatcher = pathMatcher;
@@ -25,5 +25,10 @@ public abstract class Rule {
                 && (pathMatcher == null || pathMatcher.matcher(file.getPath()).matches());
     }
 
-    public abstract void process(Fileish file, Context context, List<Operation> operations) throws IOException;
+    @SuppressWarnings("unchecked")
+    public void process(Fileish file, Context context, List<Operation> operations) throws IOException {
+        doProcess((F) file, (C) context, operations);
+    }
+
+    protected abstract void doProcess(F file, C context, List<Operation> operations) throws IOException;
 }

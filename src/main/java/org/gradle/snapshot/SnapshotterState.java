@@ -9,10 +9,10 @@ import java.util.Map;
 
 public class SnapshotterState {
     private Context context;
-    private final Iterable<? extends Rule> rules;
+    private final Iterable<? extends Rule<?, ?>> rules;
     private final Map<HashCode, HashCode> hashCache = Maps.newHashMap();
 
-    public SnapshotterState(Context context, Iterable<? extends Rule> rules) {
+    public SnapshotterState(Context context, Iterable<? extends Rule<?, ?>> rules) {
         this.context = context;
         this.rules = rules;
     }
@@ -25,7 +25,7 @@ public class SnapshotterState {
         this.context = context;
     }
 
-    public Iterable<? extends Rule> getRules() {
+    public Iterable<? extends Rule<?, ?>> getRules() {
         return rules;
     }
 }

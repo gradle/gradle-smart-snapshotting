@@ -16,17 +16,17 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-public class ProcessPropertyFile extends ContentRule {
+public class ProcessPropertyFile<C extends Context> extends Rule<FileishWithContents, C> {
     private static final Pattern PROPERTY_FILE = Pattern.compile(".*\\.properties");
     private final Set<String> ignoredKeys;
 
-    public ProcessPropertyFile(Class<? extends Context> contextType, Set<String> ignoredKeys) {
-        super(contextType, PROPERTY_FILE);
+    public ProcessPropertyFile(Class<C> contextType, Set<String> ignoredKeys) {
+        super(FileishWithContents.class, contextType, PROPERTY_FILE);
         this.ignoredKeys = ignoredKeys;
     }
 
     @Override
-    protected void processContents(FileishWithContents file, Context context, List<Operation> operations) throws IOException {
+    protected void doProcess(FileishWithContents file, C context, List<Operation> operations) throws IOException {
         Properties properties = new Properties();
         properties.load(file.open());
         ImmutableSortedMap<String, String> propertiesMap = ImmutableSortedMap.copyOf(Maps.fromProperties(properties));
