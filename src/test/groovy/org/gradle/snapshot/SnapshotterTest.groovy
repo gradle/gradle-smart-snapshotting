@@ -33,13 +33,18 @@ class SnapshotterTest extends Specification {
     // Context for runtime classpaths
     static class RuntimeClasspathContext extends AbstractContext {
         @Override
-        protected String normalize(String key) {
+        protected String normalize(Fileish file) {
             return ""
         }
     }
 
     // Context for runtime classpath entries (JAR files and directories)
     static class RuntimeClasspathEntryContext extends AbstractContext {
+        @Override
+        protected String normalize(Fileish file) {
+            return file.relativePath
+        }
+
         @Override
         protected HashCode fold(Collection<Map.Entry<String, Result>> results, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
             // Make sure classpath entries have their elements sorted before combining the hashes
@@ -49,13 +54,23 @@ class SnapshotterTest extends Specification {
         }
     }
 
-    // No-fluff context for regular property snapshotting
-    static class DefaultContext extends AbstractContext {}
+    // No-fluff context for regular property snapshotting with relative path sensitivity
+    static class DefaultContext extends AbstractContext {
+        @Override
+        protected String normalize(Fileish file) {
+            return file.relativePath
+        }
+    }
 
     // A list of WAR files (with potentially a single element)
     // This is kind of a workaround, as in most cases a property will only have a single WAR file
     // but when snapshotting we only see FileCollections (even if the property's type if File).
-    static class WarList extends AbstractContext {}
+    static class WarList extends AbstractContext {
+        @Override
+        protected String normalize(Fileish file) {
+            return file.relativePath
+        }
+    }
 
     // A WAR file
     static class War extends AbstractContext {}
@@ -114,7 +129,6 @@ class SnapshotterTest extends Specification {
             }
         })
         // Handle directories as exploded WAR files
-        // TODO: We could allow directories in zips, too
         .add(new PhysicalDirectoryRule(WarList, null) {
             @Override
             protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
@@ -158,7 +172,6 @@ class SnapshotterTest extends Specification {
         when:
         def (hash, events, physicalSnapshots) = snapshot(inputs, DefaultContext, BASIC_RULES)
         then:
-        hash == "482a3974d523dfaa582f53020835be4b"
         events == [
             "Snapshot taken: firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
             "Snapshot taken: secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
@@ -167,6 +180,7 @@ class SnapshotterTest extends Specification {
             "Snapshot taken: emptydir - $Directoryish.HASH",
             "Folded: DefaultContext - 482a3974d523dfaa582f53020835be4b",
         ]
+        hash == "482a3974d523dfaa582f53020835be4b"
         physicalSnapshots == [
             "firstFile.txt: 9db5682a4d778ca2cb79580bdb67083f",
             "secondFile.txt: 82e72efeddfca85ddb625e88af3fe973",
@@ -288,7 +302,6 @@ class SnapshotterTest extends Specification {
         when:
         def (hash, events, physicalSnapshots) = snapshot([warFile], WarList, WAR_FILE_RULES)
         then:
-        hash == "7676ea472df4bf672f99e185a7b84235"
         events == [
                 "Snapshot taken: web-app.war!WEB-INF/web.xml - 672d3ef8a00bcece517a3fed0f06804b",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/guava.jar!com/google/common/collection/Lists.class - 691d1860ec58dd973e803e209697d065",
@@ -298,6 +311,7 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/core.jar!org/gradle/Util.class - 23e8a4b4f7cc1898ef12b4e6e48852bb",
                 "Folded: WarList - 7676ea472df4bf672f99e185a7b84235",
         ]
+        hash == "7676ea472df4bf672f99e185a7b84235"
         physicalSnapshots == [
             "web-app.war: ed22ff590fc44449fea9562f9e33ae09"
         ]
@@ -401,7 +415,7 @@ class SnapshotterTest extends Specification {
 
         @Override
         void recordSnapshot(Fileish file, HashCode hash) {
-            report("Snapshot taken", file.path, hash)
+            report("Snapshot taken", file.relativePath, hash)
             delegate.recordSnapshot(file, hash)
         }
 
@@ -420,7 +434,7 @@ class SnapshotterTest extends Specification {
             def subContext = delegate.recordSubContext(file, type)
             def wrapper = wrappers.get(subContext)
             if (wrapper == null) {
-                wrapper = new RecordingContextWrapper(getFullPath(file.path), events, subContext)
+                wrapper = new RecordingContextWrapper(getFullPath(file.relativePath), events, subContext)
                 wrappers.put(subContext, wrapper)
             }
             return (C) wrapper

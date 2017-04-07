@@ -33,4 +33,8 @@ public abstract class Result {
     }
 
     public abstract HashCode foldInternal(ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots);
+
+    public Fileish getFile() {
+        return file;
+    }
 }

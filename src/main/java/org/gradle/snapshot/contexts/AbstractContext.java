@@ -52,17 +52,16 @@ public abstract class AbstractContext implements Context {
         return fold(results.entrySet(), physicalSnapshots);
     }
 
-    protected String normalize(String key) {
-        return key;
+    protected String normalize(Fileish file) {
+        return file.getPath();
     }
 
     protected HashCode fold(Collection<Map.Entry<String, Result>> results, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
         Hasher hasher = Hashing.md5().newHasher();
         results.forEach(entry -> {
-            String key = entry.getKey();
             Result result = entry.getValue();
 
-            String normalizedPath = normalize(key);
+            String normalizedPath = normalize(result.getFile());
             hasher.putString(normalizedPath, Charsets.UTF_8);
             hasher.putBytes(result.fold(normalizedPath, physicalSnapshots).asBytes());
         });

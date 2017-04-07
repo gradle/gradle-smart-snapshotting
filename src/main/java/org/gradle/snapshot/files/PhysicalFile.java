@@ -13,8 +13,8 @@ public class PhysicalFile extends AbstractFileish implements Physical, FileishWi
     private final File file;
     private HashCode contentHash;
 
-    public PhysicalFile(String path, File file) {
-        super(path);
+    public PhysicalFile(String path, String relativePath, File file) {
+        super(path, relativePath);
         this.file = file;
     }
 
