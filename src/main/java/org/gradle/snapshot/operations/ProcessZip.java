@@ -24,7 +24,6 @@ public class ProcessZip extends Operation {
     public boolean execute(SnapshotterState state, List<Operation> dependencies) throws IOException {
         if (input == null) {
             input = new ZipInputStream(file.open());
-            dependencies.add(new SetOriginFile(file, getContext()));
         }
         ZipEntry entry = input.getNextEntry();
         if (entry == null) {

@@ -2,11 +2,11 @@ package org.gradle.snapshot.files;
 
 import com.google.common.hash.HashCode;
 
-public class DefaultPhysicalFileSnapshot implements PhysicalFileSnapshot {
+public class DefaultPhysicalSnapshot implements PhysicalSnapshot {
     private final Physical file;
     private final HashCode hashCode;
 
-    public DefaultPhysicalFileSnapshot(Physical file, HashCode hashCode) {
+    public DefaultPhysicalSnapshot(Physical file, HashCode hashCode) {
         this.file = file;
         this.hashCode = hashCode;
     }
@@ -19,5 +19,10 @@ public class DefaultPhysicalFileSnapshot implements PhysicalFileSnapshot {
     @Override
     public HashCode getHashCode() {
         return hashCode;
+    }
+
+    @Override
+    public String toString() {
+        return file.getPath() + ": " + hashCode;
     }
 }
