@@ -120,8 +120,6 @@ class SnapshotterTest extends Specification {
     @org.junit.Rule
     TemporaryFolder temporaryFolder = new TemporaryFolder()
     Snapshotter snapshotter = new Snapshotter()
-    List<String> events = []
-    List<PhysicalSnapshot> physicalSnapshots = []
 
     def "snapshots runtime classpath files"() {
         def zipFile = file('zipContents').create {
@@ -140,8 +138,9 @@ class SnapshotterTest extends Specification {
         }
 
         when:
-        snapshot([zipFile, classes], RuntimeClasspathContext, RUNTIME_CLASSPATH_RULES)
+        def (hash, events, physicalSnapshots) = snapshot([zipFile, classes], RuntimeClasspathContext, RUNTIME_CLASSPATH_RULES)
         then:
+        hash == "a6fb5fc3061570f426ef599fa9b53a73"
         events == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
@@ -151,13 +150,12 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: classes!thirdFile.txt - 3f1d3e7fb9620156f8e911fb90d89c42",
                 "Folded: RuntimeClasspathContext - a6fb5fc3061570f426ef599fa9b53a73",
         ]
-        physicalSnapshots*.toString() == [
+        physicalSnapshots == [
             "library.jar: 429be5439dc0cf3eacb9a48563f00a52",
             "fourthFile.txt: 6c99cb370b82c9c527320b35524213e6",
             "subdir/build.log: a9cca315f4b8650dccfa3d93284998ef",
             "thirdFile.txt: 3f1d3e7fb9620156f8e911fb90d89c42",
-            // TODO This should be a fixed hash
-            "classes: 8be113891fbdb7e0acc957cced25ff93",
+            "classes: $Result.EMPTY_DIRECTORY_HASH",
         ]
     }
 
@@ -182,14 +180,15 @@ class SnapshotterTest extends Specification {
             .build()
 
         when:
-        snapshot([zipFile], RuntimeClasspathContext, rules)
+        def (hash, events, physicalSnapshots) = snapshot([zipFile], RuntimeClasspathContext, rules)
         then:
+        hash == "1e985e6e85f4cc31ea24b8abd17e42c5"
         events == [
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
                 "Folded: RuntimeClasspathContext - 1e985e6e85f4cc31ea24b8abd17e42c5",
         ]
-        physicalSnapshots*.toString() == [
+        physicalSnapshots == [
                 "library.jar: dbd9b70c18768d3199c41efef40c73c0",
         ]
     }
@@ -232,8 +231,9 @@ class SnapshotterTest extends Specification {
         warFileOut.close()
 
         when:
-        snapshot([warFile], WarList, WAR_FILE_RULES)
+        def (hash, events, physicalSnapshots) = snapshot([warFile], WarList, WAR_FILE_RULES)
         then:
+        hash == "61091b4979095cb64ef7e4c5bede55c2"
         events == [
                 "Snapshot taken: web-app.war!WEB-INF/web.xml - 672d3ef8a00bcece517a3fed0f06804b",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/guava.jar!com/google/common/collection/Lists.class - 691d1860ec58dd973e803e209697d065",
@@ -243,16 +243,17 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/core.jar!org/gradle/Util.class - 23e8a4b4f7cc1898ef12b4e6e48852bb",
                 "Folded: WarList - 61091b4979095cb64ef7e4c5bede55c2",
         ]
-        physicalSnapshots*.toString() == [
+        physicalSnapshots == [
             "web-app.war: 7124d242b1000e1c054da52d489a07db"
         ]
     }
 
-    private snapshot(Collection<File> files, Class<? extends Context> contextType, Iterable<Rule> rules) {
+    private def snapshot(Collection<File> files, Class<? extends Context> contextType, Iterable<Rule> rules) {
+        List<String> events = []
+        List<PhysicalSnapshot> physicalSnapshots = []
         def context = new RecordingContextWrapper(null, events, contextType.newInstance())
-        events.clear()
-        physicalSnapshots.clear()
-        snapshotter.snapshot(files, context, rules).fold(physicalSnapshots)
+        def hash = snapshotter.snapshot(files, context, rules).fold(physicalSnapshots)
+        return [hash.toString(), events, physicalSnapshots*.toString()]
     }
 
     private static class RecordingContextWrapper implements Context {
