@@ -19,6 +19,7 @@ import org.gradle.snapshot.operations.ProcessZip
 import org.gradle.snapshot.operations.SetContext
 import org.gradle.snapshot.rules.ContentRule
 import org.gradle.snapshot.rules.PhysicalDirectoryRule
+import org.gradle.snapshot.rules.ProcessPropertyFile
 import org.gradle.snapshot.rules.Rule
 import org.gradle.snapshot.util.TestFile
 import org.junit.rules.TemporaryFolder
@@ -108,6 +109,7 @@ class SnapshotterTest extends Specification {
             }
         })
         // Handle directories as exploded WAR files
+        // TODO: We could allow directories in zips, too
         .add(new PhysicalDirectoryRule(WarList, null) {
             @Override
             protected void processEntries(PhysicalDirectory directory, Context context, List<Operation> operations) throws IOException {
@@ -294,6 +296,79 @@ class SnapshotterTest extends Specification {
         physicalSnapshots == [
             "web-app.war: 7124d242b1000e1c054da52d489a07db"
         ]
+    }
+
+    def "can ignore ordering, comments and commitId in properties"() {
+        def rules = ImmutableList.builder()
+        // Ignore *.log files inside classpath entries
+                .add(new ProcessPropertyFile(Context.class, ['commitId'] as Set))
+                .addAll(RUNTIME_CLASSPATH_RULES)
+                .build()
+
+        def versionProperties = file('guavaContents', 'version.properties')
+        versionProperties.text = "version=1.0\ncommitId=2b5ed06"
+        def guavaJar = file('guavaContents').create {
+            "com" {
+                "google" {
+                    "common" {
+                        "collection" {
+                            file('Lists.class').text = "Lists"
+                            file('Sets.class').text = "Sets"
+                        }
+                    }
+                }
+            }
+        }.createZip(file('guava.jar'))
+        def directory = file('classpathEntry').createDir()
+        def versionInfo = directory.file('version-info.properties')
+        versionInfo.text = """
+            #Fri Apr 07 13:59:46 CEST 2017
+            baseVersion=3.4
+            commitId=c8824b6
+            
+            """.stripIndent()
+
+        when:
+        def (hash, events, physicalSnapshots) = snapshot([guavaJar, directory], RuntimeClasspathContext, rules)
+
+        then:
+        def expectedHash = "74460bfd0731ef9ebbbd47cca25ae3ea"
+        def expectedEvents = [
+                "Snapshot taken: guava.jar!com/google/common/collection/Lists.class - 691d1860ec58dd973e803e209697d065",
+                "Snapshot taken: guava.jar!com/google/common/collection/Sets.class - 86f5baf708c6c250204451eb89736947",
+                "Snapshot taken: guava.jar!version.properties - 607e2d3a119dfe832d937ce579ef1079",
+                "Snapshot taken: classpathEntry!version-info.properties - 795c402213e860112745ff2a74b21a37",
+                "Folded: RuntimeClasspathContext - 74460bfd0731ef9ebbbd47cca25ae3ea"
+        ]
+        def expectedPhysicalSnapshots = [
+                "guava.jar: ced1c18e2abdd7fec3d936d846bc789c",
+                "version-info.properties: 795c402213e860112745ff2a74b21a37",
+                "classpathEntry: 28766b4be065d0c806c2e9c9d914af48"
+        ]
+        events == expectedEvents
+        hash == expectedHash
+        physicalSnapshots == expectedPhysicalSnapshots
+
+        when:
+        versionProperties.text = """
+            commitId=784bcde
+            version=1.0
+        """.stripIndent()
+        guavaJar.delete()
+        file('guavaContents').createZip(guavaJar)
+        versionInfo.text = """
+            baseVersion=3.4
+            
+            #Fri Apr 07 13:59:46 CEST 2017
+            commitId=ab53f34
+        """.stripIndent()
+
+        (hash, events, physicalSnapshots) = snapshot([guavaJar, directory], RuntimeClasspathContext, rules)
+
+        then:
+        hash == expectedHash
+        events == expectedEvents
+        physicalSnapshots == expectedPhysicalSnapshots
     }
 
     private def snapshot(Collection<? extends File> files, Class<? extends Context> contextType, Iterable<Rule> rules) {
