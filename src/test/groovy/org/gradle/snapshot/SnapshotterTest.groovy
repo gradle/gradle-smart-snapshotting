@@ -1,5 +1,6 @@
 package org.gradle.snapshot
 
+import com.google.common.collect.ImmutableCollection
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.Lists
 import com.google.common.hash.HashCode
@@ -34,7 +35,7 @@ class SnapshotterTest extends Specification {
     // Context for runtime classpath entries (JAR files and directories)
     static class RuntimeClasspathEntryContext extends AbstractContext {
         @Override
-        protected HashCode fold(Collection<Map.Entry<String, Result>> results, Collection<PhysicalSnapshot> physicalSnapshots) {
+        protected HashCode fold(Collection<Map.Entry<String, Result>> results, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
             // Make sure classpath entries have their elements sorted before combining the hashes
             List<Map.Entry<String, Result>> sortedResults = Lists.newArrayList(results)
             sortedResults.sort { a, b -> a.key <=> b.key }
@@ -297,10 +298,10 @@ class SnapshotterTest extends Specification {
 
     private def snapshot(Collection<? extends File> files, Class<? extends Context> contextType, Iterable<Rule> rules) {
         List<String> events = []
-        List<PhysicalSnapshot> physicalSnapshots = []
+        ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots = ImmutableList.builder()
         def context = new RecordingContextWrapper(null, events, contextType.newInstance())
         def hash = snapshotter.snapshot(files, context, rules).fold(physicalSnapshots)
-        return [hash.toString(), events, physicalSnapshots*.toString()]
+        return [hash.toString(), events, physicalSnapshots.build()*.toString()]
     }
 
     private static class RecordingContextWrapper implements Context {
@@ -346,7 +347,7 @@ class SnapshotterTest extends Specification {
         }
 
         @Override
-        HashCode fold(Collection<PhysicalSnapshot> physicalSnapshots) {
+        HashCode fold(ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
             def hashCode = delegate.fold(physicalSnapshots)
             report("Folded", getType().simpleName, hashCode)
             return hashCode

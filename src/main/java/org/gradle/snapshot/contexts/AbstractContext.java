@@ -2,6 +2,7 @@ package org.gradle.snapshot.contexts;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
@@ -49,11 +50,11 @@ public abstract class AbstractContext implements Context {
     }
 
     @Override
-    public final HashCode fold(Collection<PhysicalSnapshot> physicalSnapshots) {
+    public final HashCode fold(ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
         return fold(results.entrySet(), physicalSnapshots);
     }
 
-    protected HashCode fold(Collection<Map.Entry<String, Result>> results, Collection<PhysicalSnapshot> physicalSnapshots) {
+    protected HashCode fold(Collection<Map.Entry<String, Result>> results, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
         Hasher hasher = Hashing.md5().newHasher();
         results.forEach(entry -> {
             String key = entry.getKey();
