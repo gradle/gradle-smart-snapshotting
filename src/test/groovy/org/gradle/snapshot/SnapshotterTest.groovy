@@ -332,7 +332,7 @@ class SnapshotterTest extends Specification {
         versionInfo.text = """
             baseVersion=3.4
             
-            #Fri Apr 07 13:59:46 CEST 2017
+            #Tue Apr 04 07:32:24 CEST 2017
             commitId=ab53f34
         """.stripIndent()
 
