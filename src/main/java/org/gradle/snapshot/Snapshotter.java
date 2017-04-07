@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class Snapshotter {
     public <C extends Context> C snapshot(Collection<? extends File> files, C context, Iterable<? extends Rule> rules) throws IOException {
         process(files.stream()
-                .map(file -> Physical.of(file.getName(), file))
+                .map(file -> Physical.of(file.getAbsolutePath(), file))
                 .collect(Collectors.toList()), context, rules);
         return context;
     }

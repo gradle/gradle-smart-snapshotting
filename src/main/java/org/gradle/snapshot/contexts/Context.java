@@ -10,4 +10,5 @@ public interface Context {
     <C extends Context> C recordSubContext(Fileish file, Class<C> type);
     Class<? extends Context> getType();
     HashCode fold(ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots);
+    void setRootFile(Fileish file);
 }

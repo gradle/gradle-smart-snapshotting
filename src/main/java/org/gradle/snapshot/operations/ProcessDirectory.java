@@ -26,6 +26,7 @@ public class ProcessDirectory extends Operation {
         File rootFile = root.getFile();
         if (files == null) {
             files = Files.walk(rootFile.toPath()).map(Path::toFile).iterator();
+            getContext().setRootFile(root);
         }
 
         if (!files.hasNext()) {
@@ -39,7 +40,7 @@ public class ProcessDirectory extends Operation {
             if (file.equals(rootFile)) {
                 continue;
             }
-            applyToAncestry(new StringBuilder(), rootFile, file, dependencies);
+            applyToAncestry(new StringBuilder(rootFile.getAbsolutePath()).append('/'), rootFile, file, dependencies);
             break;
         }
         return false;

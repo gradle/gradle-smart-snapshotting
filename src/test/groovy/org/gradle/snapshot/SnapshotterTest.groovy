@@ -25,6 +25,7 @@ import org.gradle.snapshot.util.TestFile
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
 
+import java.nio.file.Paths
 import java.util.regex.Pattern
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -33,13 +34,21 @@ class SnapshotterTest extends Specification {
     // Context for runtime classpaths
     static class RuntimeClasspathContext extends AbstractContext {
         @Override
-        protected String normalize(String key) {
+        protected String normalize(Fileish rootFile, String key) {
             return ""
         }
     }
 
     // Context for runtime classpath entries (JAR files and directories)
     static class RuntimeClasspathEntryContext extends AbstractContext {
+        @Override
+        protected String normalize(Fileish rootFile, String key) {
+            if (rootFile != null) {
+                return Paths.get(rootFile.getPath()).relativize(Paths.get(key)).toString()
+            }
+            return key
+        }
+
         @Override
         protected HashCode fold(Collection<Map.Entry<String, Result>> results, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) {
             // Make sure classpath entries have their elements sorted before combining the hashes
@@ -200,16 +209,16 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: library.jar!firstFile.txt - 9db5682a4d778ca2cb79580bdb67083f",
                 "Snapshot taken: library.jar!secondFile.txt - 82e72efeddfca85ddb625e88af3fe973",
                 "Snapshot taken: library.jar!subdir/someOtherFile.log - a9cca315f4b8650dccfa3d93284998ef",
-                "Snapshot taken: classes!fourthFile.txt - 6c99cb370b82c9c527320b35524213e6",
-                "Snapshot taken: classes!subdir/build.log - a9cca315f4b8650dccfa3d93284998ef",
-                "Snapshot taken: classes!thirdFile.txt - 3f1d3e7fb9620156f8e911fb90d89c42",
+                "Snapshot taken: classes!classes/fourthFile.txt - 6c99cb370b82c9c527320b35524213e6",
+                "Snapshot taken: classes!classes/subdir/build.log - a9cca315f4b8650dccfa3d93284998ef",
+                "Snapshot taken: classes!classes/thirdFile.txt - 3f1d3e7fb9620156f8e911fb90d89c42",
                 "Folded: RuntimeClasspathContext - 2bf4bccdda496564bd760f1fa35d9ab4",
         ]
         physicalSnapshots == [
             "library.jar (''): 429be5439dc0cf3eacb9a48563f00a52",
-            "fourthFile.txt: 6c99cb370b82c9c527320b35524213e6",
-            "subdir/build.log: a9cca315f4b8650dccfa3d93284998ef",
-            "thirdFile.txt: 3f1d3e7fb9620156f8e911fb90d89c42",
+            "classes/fourthFile.txt ('fourthFile.txt'): 6c99cb370b82c9c527320b35524213e6",
+            "classes/subdir/build.log ('subdir/build.log'): a9cca315f4b8650dccfa3d93284998ef",
+            "classes/thirdFile.txt ('thirdFile.txt'): 3f1d3e7fb9620156f8e911fb90d89c42",
             "classes (''): $Directoryish.HASH",
         ]
     }
@@ -379,9 +388,14 @@ class SnapshotterTest extends Specification {
     private def snapshot(Collection<? extends File> files, Class<? extends Context> contextType, Iterable<Rule> rules) {
         List<String> events = []
         ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots = ImmutableList.builder()
-        def context = new RecordingContextWrapper(null, events, contextType.newInstance())
+        def rootPath = temporaryFolder.root.absolutePath
+        def context = new RecordingContextWrapper(rootPath, null, events, contextType.newInstance())
         def hash = snapshotter.snapshot(files, context, rules).fold(physicalSnapshots)
-        return [hash.toString(), events, physicalSnapshots.build()*.toString()]
+        return [hash.toString(), events, physicalSnapshots.build()*.toString().collect { sanitize(rootPath, it) }]
+    }
+
+    private static String sanitize(String root, String file) {
+        file.replace(root + "/", "/").replace("/private/", "")
     }
 
     private static class RecordingContextWrapper implements Context {
@@ -389,11 +403,13 @@ class SnapshotterTest extends Specification {
         String path
         Context delegate
         Map<Context, RecordingContextWrapper> wrappers = [:]
+        String root
 
         RecordingContextWrapper() {
         }
 
-        RecordingContextWrapper(String path, List<String> events, Context delegate) {
+        RecordingContextWrapper(String root, String path, List<String> events, Context delegate) {
+            this.root = root
             this.events = events
             this.path = path
             this.delegate = delegate
@@ -401,9 +417,10 @@ class SnapshotterTest extends Specification {
 
         @Override
         void recordSnapshot(Fileish file, HashCode hash) {
-            report("Snapshot taken", file.path, hash)
+            report("Snapshot taken", sanitize(root, file.path), hash)
             delegate.recordSnapshot(file, hash)
         }
+
 
         private void report(String type, String filePath, HashCode hash) {
             def event = "$type: ${getFullPath(filePath)} - $hash"
@@ -420,7 +437,7 @@ class SnapshotterTest extends Specification {
             def subContext = delegate.recordSubContext(file, type)
             def wrapper = wrappers.get(subContext)
             if (wrapper == null) {
-                wrapper = new RecordingContextWrapper(getFullPath(file.path), events, subContext)
+                wrapper = new RecordingContextWrapper(root, getFullPath(sanitize(root, file.path)), events, subContext)
                 wrappers.put(subContext, wrapper)
             }
             return (C) wrapper
@@ -431,6 +448,11 @@ class SnapshotterTest extends Specification {
             def hashCode = delegate.fold(physicalSnapshots)
             report("Folded", getType().simpleName, hashCode)
             return hashCode
+        }
+
+        @Override
+        void setRootFile(Fileish file) {
+            delegate.setRootFile(file)
         }
 
         @Override
