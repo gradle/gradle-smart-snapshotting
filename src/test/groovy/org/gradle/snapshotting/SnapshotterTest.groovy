@@ -4,6 +4,7 @@ import com.google.common.base.Charsets
 import com.google.common.collect.ImmutableCollection
 import com.google.common.collect.ImmutableList
 import com.google.common.hash.HashCode
+import com.google.common.io.ByteStreams
 import org.gradle.snapshotting.cache.NoOpPhysicalHashCache
 import org.gradle.snapshotting.cache.SimplePhysicalHashCache
 import org.gradle.snapshotting.contexts.AbstractContext
@@ -24,6 +25,7 @@ import org.gradle.snapshotting.rules.ProcessPropertyFile
 import org.gradle.snapshotting.rules.Rule
 import org.gradle.snapshotting.util.TestFile
 import org.junit.rules.TemporaryFolder
+import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.util.zip.ZipEntry
@@ -292,6 +294,36 @@ class SnapshotterTest extends Specification {
         ]
         physicalSnapshots == [
                 "library.jar (''): dbd9b70c18768d3199c41efef40c73c0",
+        ]
+    }
+
+    @Ignore("Error handling is not yet implemented")
+    def "can snapshot JAR as raw content when cannot process file itself"() {
+        def workingZipFile = file('zipContents').create {
+            file('firstFile.txt').text = "Some text"
+            file('secondFile.txt').text = "Second File"
+            subdir {
+                file('someOtherFile.log').text = "File in subdir"
+            }
+        }.createZip(file('library.jar'))
+
+        def brokenZipFile = file('broken.jar')
+        println "Length: ${workingZipFile.length()}"
+        brokenZipFile.withOutputStream { output ->
+            workingZipFile.withInputStream { input ->
+                ByteStreams.copy(ByteStreams.limit(input, 120), output)
+            }
+        }
+
+        when:
+        def (hash, events, physicalSnapshots) = snapshot(ClasspathContext, RUNTIME_CLASSPATH_RULES, brokenZipFile)
+        then:
+        hash == "2414c546f76ce381e2019fbb6ea7b988"
+        events == [
+                "Snapshot taken: broken.jar - 9db5682a4d778ca2cb79580bdb67083f",
+        ]
+        physicalSnapshots == [
+                "broken.jar (''): dbd9b70c18768d3199c41efef40c73c0",
         ]
     }
 
