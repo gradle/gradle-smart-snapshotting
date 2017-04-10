@@ -23,10 +23,8 @@ import java.util.Deque;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// TODO: Handle missing files
 // TODO: Handle empty directories
 // TODO: Handle junk files on classpaths, and in WAR files
-// TODO: Demonstrate properties file filtering
 public class Snapshotter {
     private final PhysicalHashCache hashCache;
 
