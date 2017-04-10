@@ -30,4 +30,8 @@ public abstract class Result {
     }
 
     public abstract HashCode foldInternal(PhysicalSnapshotCollector physicalSnapshots);
+
+    public Fileish getFile() {
+        return file;
+    }
 }

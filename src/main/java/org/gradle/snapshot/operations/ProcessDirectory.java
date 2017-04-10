@@ -52,6 +52,7 @@ public class ProcessDirectory extends Operation {
             path.append('/');
         }
         path.append(file.getName());
-        dependencies.add(new ApplyTo(Physical.of(path.toString(), file)));
+        String relativePath = path.toString();
+        dependencies.add(new ApplyTo(Physical.of(root.getAbsolutePath() + "/" + relativePath, relativePath, file)));
     }
 }

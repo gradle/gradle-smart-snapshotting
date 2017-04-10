@@ -18,7 +18,7 @@ public class ZipEntryFile extends AbstractFileish implements FileishWithContents
     private boolean used;
 
     public ZipEntryFile(String path, ZipInputStream inputStream) {
-        super(path);
+        super(path, path);
         this.inputStream = inputStream;
     }
 

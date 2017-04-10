@@ -38,7 +38,7 @@ public class Snapshotter {
     public HashCode snapshot(Collection<? extends File> files, Context context, Iterable<? extends Rule<?, ?>> rules, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) throws IOException {
         Collection<Physical> physicalFiles = Collections2.transform(files, file -> {
             try {
-                return Physical.of(file.getName(), file);
+                return Physical.of(file.getAbsolutePath(), file.getName(), file);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }

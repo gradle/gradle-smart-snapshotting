@@ -10,14 +10,14 @@ import java.io.IOException;
 public interface Physical extends Fileish {
     File getFile();
 
-    static Physical of(String path, File file) throws IOException {
+    static Physical of(String path, String relativePath, File file) throws IOException {
         if (!file.exists()) {
-            return new MissingPhysicalFile(path, file);
+            return new MissingPhysicalFile(path, relativePath, file);
         } else if (file.isDirectory()) {
-            return new PhysicalDirectory(path, file);
+            return new PhysicalDirectory(path, relativePath, file);
         } else {
             HashCode contentHash = Files.hash(file, Hashing.md5());
-            return new PhysicalFile(path, file, contentHash);
+            return new PhysicalFile(path, relativePath, file, contentHash);
         }
     }
 }

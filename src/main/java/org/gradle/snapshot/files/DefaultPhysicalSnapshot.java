@@ -30,7 +30,7 @@ public class DefaultPhysicalSnapshot implements PhysicalSnapshot {
 
     @Override
     public String toString() {
-        String path = file.getPath();
+        String path = file.getRelativePath();
         return path + (
                 path.equals(normalizedPath) ? "" : " ('" + normalizedPath + "')"
         ) + ": " + hashCode;

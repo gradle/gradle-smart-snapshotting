@@ -10,8 +10,8 @@ public class MissingPhysicalFile extends AbstractFileish implements Physical {
     public static final HashCode HASH = Hashing.md5().hashString("MISSING_FILE", Charsets.UTF_8);
     private final File file;
 
-    public MissingPhysicalFile(String path, File file) {
-        super(path);
+    public MissingPhysicalFile(String path, String relativePath, File file) {
+        super(path, relativePath);
         this.file = file;
     }
 
