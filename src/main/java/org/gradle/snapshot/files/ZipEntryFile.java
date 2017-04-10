@@ -17,8 +17,8 @@ public class ZipEntryFile extends AbstractFileish implements FileishWithContents
     private final ZipInputStream inputStream;
     private boolean used;
 
-    public ZipEntryFile(String path, ZipInputStream inputStream) {
-        super(path, path);
+    public ZipEntryFile(String path, Fileish zipFile, ZipInputStream inputStream) {
+        super(path, zipFile);
         this.inputStream = inputStream;
     }
 
@@ -39,5 +39,10 @@ public class ZipEntryFile extends AbstractFileish implements FileishWithContents
     private void ensureUnused() {
         Preconditions.checkState(!used, "Zip file entry cannot be opened twice");
         used = true;
+    }
+
+    @Override
+    public String getRelativePath() {
+        return getPath();
     }
 }

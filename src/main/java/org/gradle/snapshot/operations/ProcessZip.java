@@ -34,12 +34,12 @@ public class ProcessZip extends Operation {
         String path = entry.getName();
         int index = -1;
         while ((index = path.indexOf('/', index + 1)) != -1) {
-            dependencies.add(new ApplyTo(new ZipEntryDirectory(path.substring(0, index))));
+            dependencies.add(new ApplyTo(new ZipEntryDirectory(path.substring(0, index), file)));
         }
 
         // Match against the file
         if (!entry.isDirectory()) {
-            dependencies.add(new ApplyTo(new ZipEntryFile(path, input)));
+            dependencies.add(new ApplyTo(new ZipEntryFile(path, file, input)));
         }
         return false;
     }

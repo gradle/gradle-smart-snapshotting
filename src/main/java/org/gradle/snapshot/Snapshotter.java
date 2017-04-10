@@ -34,7 +34,7 @@ public class Snapshotter {
 
     public HashCode snapshot(Collection<? extends File> files, Context context, Iterable<? extends Rule<?, ?>> rules, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) throws IOException {
         process(files.stream()
-                .map(file -> Physical.of(file.getAbsolutePath(), file.getName(), file))
+                .map(file -> Physical.of(file.getAbsolutePath(), null, file))
                 .collect(Collectors.toList()), context, rules, hashCache);
         PhysicalSnapshotCollector collector = new CachingCollector(
             hashCache,

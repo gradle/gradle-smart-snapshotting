@@ -11,8 +11,8 @@ public class PhysicalFile extends AbstractFileish implements Physical, FileishWi
     private final File file;
     private final HashCode contentHash;
 
-    public PhysicalFile(String path, String relativePath, File file, HashCode contentHash) {
-        super(path, relativePath);
+    public PhysicalFile(String path, PhysicalDirectory parent, File file, HashCode contentHash) {
+        super(path, parent);
         this.file = file;
         this.contentHash = contentHash;
     }
@@ -27,8 +27,19 @@ public class PhysicalFile extends AbstractFileish implements Physical, FileishWi
         return new FileInputStream(file);
     }
 
+
+    @Override
+    public PhysicalDirectory getParent() {
+        return (PhysicalDirectory) super.getParent();
+    }
+
     @Override
     public HashCode getContentHash() {
         return contentHash;
+    }
+
+    @Override
+    public String getRelativePath() {
+        return Physical.getRelativePath(getParent(), this);
     }
 }

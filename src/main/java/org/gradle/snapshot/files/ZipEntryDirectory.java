@@ -1,7 +1,12 @@
 package org.gradle.snapshot.files;
 
 public class ZipEntryDirectory extends AbstractFileish implements Directoryish {
-    public ZipEntryDirectory(String path) {
-        super(path, path);
+    public ZipEntryDirectory(String path, Fileish zipFile) {
+        super(path, zipFile);
+    }
+
+    @Override
+    public String getRelativePath() {
+        return getPath();
     }
 }

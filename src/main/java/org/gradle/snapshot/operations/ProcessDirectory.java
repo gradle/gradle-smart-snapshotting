@@ -39,7 +39,7 @@ public class ProcessDirectory extends Operation {
             if (file.equals(rootFile)) {
                 continue;
             }
-            applyToAncestry(new StringBuilder(), rootFile, file, dependencies);
+            applyToAncestry(new StringBuilder(rootFile.getAbsolutePath()).append('/'), rootFile, file, dependencies);
             break;
         }
         return false;
@@ -52,7 +52,6 @@ public class ProcessDirectory extends Operation {
             path.append('/');
         }
         path.append(file.getName());
-        String relativePath = path.toString();
-        dependencies.add(new ApplyTo(Physical.of(root.getAbsolutePath() + "/" + relativePath, relativePath, file)));
+        dependencies.add(new ApplyTo(Physical.of(path.toString(), this.root, file)));
     }
 }
