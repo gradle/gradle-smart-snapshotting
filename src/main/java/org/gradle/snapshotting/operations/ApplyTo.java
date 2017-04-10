@@ -6,6 +6,7 @@ import org.gradle.snapshotting.contexts.Context;
 import org.gradle.snapshotting.files.Fileish;
 import org.gradle.snapshotting.files.PhysicalFile;
 import org.gradle.snapshotting.rules.Rule;
+import org.gradle.snapshotting.rules.RuleMatcher;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -35,18 +36,13 @@ public class ApplyTo extends Operation {
                 }
             }
 
-            Rule<?, ?> matchedRule = null;
-            for (Rule<?, ?> rule : state.getRules()) {
-                if (rule.matches(file, context)) {
-                    matchedRule = rule;
-                    break;
-                }
-            }
-            if (matchedRule == null) {
-                throw new IllegalStateException(String.format("Cannot find matching rule for %s in context %s", file, context));
-            }
-            matchedRule.process(file, context, dependencies);
+            applyRule(state.getRuleMatcher(), file, context, dependencies);
         }
         return true;
+    }
+
+    private static <F extends Fileish, C extends Context> void applyRule(RuleMatcher ruleMatcher, F file, C context, List<Operation> dependencies) throws IOException {
+        Rule<? super F, ? super C> rule = ruleMatcher.match(file, context);
+        rule.process(file, context, dependencies);
     }
 }

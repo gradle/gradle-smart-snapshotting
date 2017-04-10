@@ -2,17 +2,17 @@ package org.gradle.snapshotting;
 
 import org.gradle.snapshotting.cache.PhysicalHashCache;
 import org.gradle.snapshotting.contexts.Context;
-import org.gradle.snapshotting.rules.Rule;
+import org.gradle.snapshotting.rules.RuleMatcher;
 
 public class SnapshotterState {
-    private Context context;
-    private final Iterable<? extends Rule<?, ?>> rules;
+    private final RuleMatcher ruleMatcher;
     private final PhysicalHashCache hashCache;
+    private Context context;
 
-    public SnapshotterState(Context context, Iterable<? extends Rule<?, ?>> rules, PhysicalHashCache hashCache) {
-        this.context = context;
-        this.rules = rules;
+    public SnapshotterState(RuleMatcher ruleMatcher, PhysicalHashCache hashCache, Context context) {
+        this.ruleMatcher = ruleMatcher;
         this.hashCache = hashCache;
+        this.context = context;
     }
 
     public Context getContext() {
@@ -23,8 +23,8 @@ public class SnapshotterState {
         this.context = context;
     }
 
-    public Iterable<? extends Rule<?, ?>> getRules() {
-        return rules;
+    public RuleMatcher getRuleMatcher() {
+        return ruleMatcher;
     }
 
     public PhysicalHashCache getHashCache() {

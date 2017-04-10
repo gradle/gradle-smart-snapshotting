@@ -19,16 +19,17 @@ public abstract class Rule<F extends Fileish, C extends Context> {
         this.pathMatcher = pathMatcher;
     }
 
-    public boolean matches(Fileish file, Context context) {
-        return contextType.isAssignableFrom(context.getType())
-                && fileType.isAssignableFrom(file.getClass())
-                && (pathMatcher == null || pathMatcher.matcher(file.getPath()).matches());
+    public Class<F> getFileType() {
+        return fileType;
     }
 
-    @SuppressWarnings("unchecked")
-    public void process(Fileish file, Context context, List<Operation> operations) throws IOException {
-        doProcess((F) file, (C) context, operations);
+    public Class<C> getContextType() {
+        return contextType;
     }
 
-    protected abstract void doProcess(F file, C context, List<Operation> operations) throws IOException;
+    public Pattern getPathMatcher() {
+        return pathMatcher;
+    }
+
+    public abstract void process(F file, C context, List<Operation> operations) throws IOException;
 }

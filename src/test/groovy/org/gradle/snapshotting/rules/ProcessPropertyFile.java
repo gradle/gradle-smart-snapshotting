@@ -30,7 +30,7 @@ public class ProcessPropertyFile<C extends Context> extends Rule<FileishWithCont
     }
 
     @Override
-    protected void doProcess(FileishWithContents file, C context, List<Operation> operations) throws IOException {
+    public void process(FileishWithContents file, C context, List<Operation> operations) throws IOException {
         Properties properties = new Properties();
         try (Reader reader = new InputStreamReader(file.open(), encoding)) {
             properties.load(reader);

@@ -67,7 +67,7 @@ public class RuleBuilder<F extends Fileish, C extends Context> {
         return new Rule<F, C>(fileType, context, matcher) {
             @Override
             @SuppressWarnings("unchecked")
-            protected void doProcess(F file, C context, List<Operation> operations) throws IOException {
+            public void process(F file, C context, List<Operation> operations) throws IOException {
                 action.execute(file, context, operations);
             }
         };
