@@ -6,8 +6,8 @@ import org.gradle.snapshot.files.Fileish;
 public class SnapshotResult extends Result {
     private final HashCode hashCode;
 
-    public SnapshotResult(Fileish file, HashCode hashCode) {
-        super(file);
+    public SnapshotResult(Fileish file, String normalizedPath, HashCode hashCode) {
+        super(file, normalizedPath);
         this.hashCode = hashCode;
     }
 

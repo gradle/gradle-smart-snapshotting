@@ -9,6 +9,7 @@ import org.gradle.snapshot.cache.NoOpPhysicalHashCache
 import org.gradle.snapshot.cache.SimplePhysicalHashCache
 import org.gradle.snapshot.contexts.AbstractContext
 import org.gradle.snapshot.contexts.Context
+import org.gradle.snapshot.contexts.NormalizationStrategy
 import org.gradle.snapshot.contexts.PhysicalSnapshotCollector
 import org.gradle.snapshot.contexts.Result
 import org.gradle.snapshot.files.Directoryish
@@ -34,33 +35,29 @@ import static org.gradle.snapshot.rules.RuleBuilder.rule
 class SnapshotterTest extends Specification {
     // Context for runtime classpaths
     static class RuntimeClasspathContext extends AbstractContext {
-        @Override
-        protected String normalize(Fileish file) {
-            return ""
+        RuntimeClasspathContext() {
+            super(NormalizationStrategy.NONE)
         }
     }
 
     // Context for runtime classpath entries (JAR files and directories)
     static class RuntimeClasspathEntryContext extends AbstractContext {
-        @Override
-        protected String normalize(Fileish file) {
-            return file.relativePath
+        RuntimeClasspathEntryContext() {
+            super(NormalizationStrategy.RELATIVE)
         }
-
         @Override
-        protected HashCode fold(Collection<Map.Entry<String, Result>> results, PhysicalSnapshotCollector physicalSnapshots) {
+        protected HashCode fold(Collection<Result> results, PhysicalSnapshotCollector physicalSnapshots) {
             // Make sure classpath entries have their elements sorted before combining the hashes
-            List<Map.Entry<String, Result>> sortedResults = Lists.newArrayList(results)
-            sortedResults.sort { a, b -> a.key <=> b.key }
+            List<Result> sortedResults = Lists.newArrayList(results)
+            sortedResults.sort { a, b -> a.normalizedPath <=> b.normalizedPath }
             super.fold(sortedResults, physicalSnapshots)
         }
     }
 
     // No-fluff context for regular property snapshotting with relative path sensitivity
     static class DefaultContext extends AbstractContext {
-        @Override
-        protected String normalize(Fileish file) {
-            return file.relativePath
+        DefaultContext() {
+            super(NormalizationStrategy.RELATIVE)
         }
     }
 
@@ -68,14 +65,17 @@ class SnapshotterTest extends Specification {
     // This is kind of a workaround, as in most cases a property will only have a single WAR file
     // but when snapshotting we only see FileCollections (even if the property's type if File).
     static class WarList extends AbstractContext {
-        @Override
-        protected String normalize(Fileish file) {
-            return file.relativePath
+        WarList() {
+            super(NormalizationStrategy.RELATIVE)
         }
     }
 
     // A WAR file
-    static class War extends AbstractContext {}
+    static class War extends AbstractContext {
+        War() {
+            super(NormalizationStrategy.RELATIVE)
+        }
+    }
 
     private static final List<Rule> BASIC_RULES = ImmutableList.<Rule> builder()
         // Hash files in any context

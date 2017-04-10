@@ -6,8 +6,8 @@ import org.gradle.snapshot.files.Fileish;
 public class SubContextResult extends Result {
     private final Context subContext;
 
-    public SubContextResult(Fileish file, Context subContext) {
-        super(file);
+    public SubContextResult(Fileish file, String normalizedPath, Context subContext) {
+        super(file, normalizedPath);
         this.subContext = subContext;
     }
 

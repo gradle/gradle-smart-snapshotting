@@ -8,12 +8,14 @@ import org.gradle.snapshot.files.PhysicalDirectory;
 
 public abstract class Result {
     private final Fileish file;
+    private final String normalizedPath;
 
-    public Result(Fileish file) {
+    public Result(Fileish file, String normalizedPath) {
         this.file = file;
+        this.normalizedPath = normalizedPath;
     }
 
-    public HashCode fold(String normalizedPath, PhysicalSnapshotCollector physicalSnapshots) {
+    public HashCode fold(PhysicalSnapshotCollector physicalSnapshots) {
         HashCode hashCode = foldInternal(physicalSnapshots);
         if (file instanceof Physical) {
             HashCode physicalHash;
@@ -24,7 +26,7 @@ public abstract class Result {
             } else {
                 physicalHash = hashCode;
             }
-            physicalSnapshots.collectSnapshot((Physical) file, normalizedPath, physicalHash);
+            physicalSnapshots.collectSnapshot((Physical) file, getNormalizedPath(), physicalHash);
         }
         return hashCode;
     }
@@ -33,5 +35,9 @@ public abstract class Result {
 
     public Fileish getFile() {
         return file;
+    }
+
+    public String getNormalizedPath() {
+        return normalizedPath;
     }
 }

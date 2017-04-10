@@ -12,6 +12,15 @@ import java.util.Map;
 
 public abstract class AbstractContext implements Context {
     private final Map<String, Result> results = Maps.newLinkedHashMap();
+    private final NormalizationStrategy normalizationStrategy;
+
+    protected AbstractContext() {
+        this(Fileish::getPath);
+    }
+
+    protected AbstractContext(NormalizationStrategy normalizationStrategy) {
+        this.normalizationStrategy = normalizationStrategy;
+    }
 
     @Override
     public Class<? extends Context> getType() {
@@ -20,7 +29,7 @@ public abstract class AbstractContext implements Context {
 
     @Override
     public void recordSnapshot(Fileish file, HashCode hash) {
-        results.put(file.getPath(), new SnapshotResult(file, hash));
+        results.put(file.getPath(), new SnapshotResult(file, normalize(file), hash));
     }
 
     @Override
@@ -34,7 +43,7 @@ public abstract class AbstractContext implements Context {
             } catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
-            final SubContextResult subContextResult = new SubContextResult(file, subContext);
+            final SubContextResult subContextResult = new SubContextResult(file, normalize(file), subContext);
             results.put(path, subContextResult);
         } else if (result instanceof SubContextResult) {
             Context resultSubContext = ((SubContextResult) result).getSubContext();
@@ -47,21 +56,18 @@ public abstract class AbstractContext implements Context {
 
     @Override
     public final HashCode fold(PhysicalSnapshotCollector physicalSnapshots) {
-        return fold(results.entrySet(), physicalSnapshots);
+        return fold(results.values(), physicalSnapshots);
     }
 
-    protected String normalize(Fileish file) {
-        return file.getPath();
+    private String normalize(Fileish file) {
+        return normalizationStrategy.normalize(file);
     }
 
-    protected HashCode fold(Collection<Map.Entry<String, Result>> results, PhysicalSnapshotCollector physicalSnapshots) {
+    protected HashCode fold(Collection<Result> results, PhysicalSnapshotCollector physicalSnapshots) {
         Hasher hasher = Hashing.md5().newHasher();
-        for (Map.Entry<String, Result> entry : results) {
-            Result result = entry.getValue();
-
-            String normalizedPath = normalize(result.getFile());
-            hasher.putString(normalizedPath, Charsets.UTF_8);
-            hasher.putBytes(result.fold(normalizedPath, physicalSnapshots).asBytes());
+        for (Result result : results) {
+            hasher.putString(result.getNormalizedPath(), Charsets.UTF_8);
+            hasher.putBytes(result.fold(physicalSnapshots).asBytes());
         }
         return hasher.hash();
     }
