@@ -32,16 +32,16 @@ import java.util.zip.ZipOutputStream
 import static org.gradle.snapshotting.rules.RuleBuilder.rule
 
 class SnapshotterTest extends Specification {
-    // Context for runtime classpaths
-    static class RuntimeClasspathContext extends AbstractContext {
-        RuntimeClasspathContext() {
+    // Context for JVM classpaths
+    static class ClasspathContext extends AbstractContext {
+        ClasspathContext() {
             super(NormalizationStrategy.NONE, CompareStrategy.ORDER_SENSITIVE)
         }
     }
 
-    // Context for runtime classpath entries (JAR files and directories)
-    static class RuntimeClasspathEntryContext extends AbstractContext {
-        RuntimeClasspathEntryContext() {
+    // Context for JVM classpath entries (JAR files and directories)
+    static class ClasspathEntryContext extends AbstractContext {
+        ClasspathEntryContext() {
             super(NormalizationStrategy.RELATIVE, CompareStrategy.ORDER_INSENSITIVE)
         }
     }
@@ -86,17 +86,17 @@ class SnapshotterTest extends Specification {
 
     private static final List<Rule> RUNTIME_CLASSPATH_RULES = ImmutableList.<Rule> builder()
         // Treat JAR files as classpath entries inside the classpath
-        .add(rule().in(RuntimeClasspathContext).withType(FileishWithContents).withExtension("jar") { file, context, operations ->
-            def subContext = context.recordSubContext(file, RuntimeClasspathEntryContext)
+        .add(rule().in(ClasspathContext).withType(FileishWithContents).withExtension("jar") { file, context, operations ->
+            def subContext = context.recordSubContext(file, ClasspathEntryContext)
             operations.add(new ProcessZip(file, subContext))
         })
         // Treat directories as classpath entries inside the classpath
-        .add(rule().in(RuntimeClasspathContext).withType(PhysicalDirectory) { directory, context, operations ->
-            def subContext = context.recordSubContext(directory, RuntimeClasspathEntryContext)
+        .add(rule().in(ClasspathContext).withType(PhysicalDirectory) { directory, context, operations ->
+            def subContext = context.recordSubContext(directory, ClasspathEntryContext)
             operations.add(new ProcessDirectory(directory, subContext))
         })
         // Ignore empty directories inside classpath entries
-        .add(rule().in(RuntimeClasspathEntryContext).withType(Directoryish) { directory, context, operations ->
+        .add(rule().in(ClasspathEntryContext).withType(Directoryish) { directory, context, operations ->
         })
         .addAll(BASIC_RULES)
         .build()
@@ -115,7 +115,7 @@ class SnapshotterTest extends Specification {
         })
         // Handle WEB-INF/lib as a runtime classpath
         .add(rule().in(War).withType(Directoryish).matching("WEB-INF/lib") { directory, context, operations ->
-            def subContext = context.recordSubContext(directory, RuntimeClasspathContext)
+            def subContext = context.recordSubContext(directory, ClasspathContext)
             operations.add(new SetContext(subContext))
         })
         // Ignore empty directories in WAR files
@@ -174,7 +174,7 @@ class SnapshotterTest extends Specification {
         }
 
         when:
-        def (hash, events, physicalSnapshots) = snapshot(RuntimeClasspathContext, RUNTIME_CLASSPATH_RULES, zipFile, classes)
+        def (hash, events, physicalSnapshots) = snapshot(ClasspathContext, RUNTIME_CLASSPATH_RULES, zipFile, classes)
         then:
         hash == "2bf4bccdda496564bd760f1fa35d9ab4"
         events == [
@@ -227,7 +227,7 @@ class SnapshotterTest extends Specification {
         ]
 
         when:
-        def (hash, events, physicalSnapshots) = snapshot(cachingSnapshotter, RuntimeClasspathContext, RUNTIME_CLASSPATH_RULES, zipFile, classes)
+        def (hash, events, physicalSnapshots) = snapshot(cachingSnapshotter, ClasspathContext, RUNTIME_CLASSPATH_RULES, zipFile, classes)
         then:
         hash == expectedHash
         events == [
@@ -239,7 +239,7 @@ class SnapshotterTest extends Specification {
         physicalSnapshots == expectedPhysicalSnapshots
 
         when:
-        def (hash2, events2, physicalSnapshots2) = snapshot(cachingSnapshotter, RuntimeClasspathContext, RUNTIME_CLASSPATH_RULES, zipFile, classes)
+        def (hash2, events2, physicalSnapshots2) = snapshot(cachingSnapshotter, ClasspathContext, RUNTIME_CLASSPATH_RULES, zipFile, classes)
         then:
         hash2 == expectedHash
         events2 == [
@@ -260,13 +260,13 @@ class SnapshotterTest extends Specification {
 
         def rules = ImmutableList.builder()
             // Ignore *.log files inside classpath entries
-            .add(rule().in(RuntimeClasspathEntryContext).withExtension("log") { file, context, operations ->
+            .add(rule().in(ClasspathEntryContext).withExtension("log") { file, context, operations ->
             })
             .addAll(RUNTIME_CLASSPATH_RULES)
             .build()
 
         when:
-        def (hash, events, physicalSnapshots) = snapshot(RuntimeClasspathContext, rules, zipFile)
+        def (hash, events, physicalSnapshots) = snapshot(ClasspathContext, rules, zipFile)
         then:
         hash == "2414c546f76ce381e2019fbb6ea7b988"
         events == [
@@ -362,7 +362,7 @@ class SnapshotterTest extends Specification {
             """.stripIndent()
 
         when:
-        def (hash, events, physicalSnapshots) = snapshot(RuntimeClasspathContext, rules, guavaJar, directory)
+        def (hash, events, physicalSnapshots) = snapshot(ClasspathContext, rules, guavaJar, directory)
 
         then:
         def expectedHash = "c2bb9f896e5429aa6aa318f57d98f511"
@@ -395,7 +395,7 @@ class SnapshotterTest extends Specification {
             commitId=ab53f34
         """.stripIndent()
 
-        (hash, events, physicalSnapshots) = snapshot(RuntimeClasspathContext, rules, guavaJar, directory)
+        (hash, events, physicalSnapshots) = snapshot(ClasspathContext, rules, guavaJar, directory)
 
         then:
         hash == expectedHash
