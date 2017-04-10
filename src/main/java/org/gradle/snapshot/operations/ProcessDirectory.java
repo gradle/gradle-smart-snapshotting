@@ -45,7 +45,7 @@ public class ProcessDirectory extends Operation {
         return false;
     }
 
-    private void applyToAncestry(StringBuilder path, File root, File file, List<Operation> dependencies) throws IOException {
+    private void applyToAncestry(StringBuilder path, File root, File file, List<Operation> dependencies) {
         File parent = file.getParentFile();
         if (!parent.equals(root)) {
             applyToAncestry(path, root, parent, dependencies);

@@ -1,6 +1,5 @@
 package org.gradle.snapshot;
 
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Queues;
@@ -19,10 +18,10 @@ import org.gradle.snapshot.rules.Rule;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
+import java.util.stream.Collectors;
 
 // TODO: Handle missing files
 // TODO: Handle empty directories
@@ -36,14 +35,9 @@ public class Snapshotter {
     }
 
     public HashCode snapshot(Collection<? extends File> files, Context context, Iterable<? extends Rule<?, ?>> rules, ImmutableCollection.Builder<PhysicalSnapshot> physicalSnapshots) throws IOException {
-        Collection<Physical> physicalFiles = Collections2.transform(files, file -> {
-            try {
-                return Physical.of(file.getAbsolutePath(), file.getName(), file);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
-        process(physicalFiles, context, rules, hashCache);
+        process(files.stream()
+                .map(file -> Physical.of(file.getAbsolutePath(), file.getName(), file))
+                .collect(Collectors.toList()), context, rules, hashCache);
         PhysicalSnapshotCollector collector = new CachingCollector(
             hashCache,
             new DefaultPhysicalSnapshotCollector(physicalSnapshots)
