@@ -3,15 +3,14 @@ package org.gradle.snapshot
 import com.google.common.base.Charsets
 import com.google.common.collect.ImmutableCollection
 import com.google.common.collect.ImmutableList
-import com.google.common.collect.Lists
 import com.google.common.hash.HashCode
 import org.gradle.snapshot.cache.NoOpPhysicalHashCache
 import org.gradle.snapshot.cache.SimplePhysicalHashCache
 import org.gradle.snapshot.contexts.AbstractContext
+import org.gradle.snapshot.contexts.CompareStrategy
 import org.gradle.snapshot.contexts.Context
 import org.gradle.snapshot.contexts.NormalizationStrategy
 import org.gradle.snapshot.contexts.PhysicalSnapshotCollector
-import org.gradle.snapshot.contexts.Result
 import org.gradle.snapshot.files.Directoryish
 import org.gradle.snapshot.files.Fileish
 import org.gradle.snapshot.files.FileishWithContents
@@ -36,28 +35,21 @@ class SnapshotterTest extends Specification {
     // Context for runtime classpaths
     static class RuntimeClasspathContext extends AbstractContext {
         RuntimeClasspathContext() {
-            super(NormalizationStrategy.NONE)
+            super(NormalizationStrategy.NONE, CompareStrategy.ORDER_SENSITIVE)
         }
     }
 
     // Context for runtime classpath entries (JAR files and directories)
     static class RuntimeClasspathEntryContext extends AbstractContext {
         RuntimeClasspathEntryContext() {
-            super(NormalizationStrategy.RELATIVE)
-        }
-        @Override
-        protected HashCode fold(Collection<Result> results, PhysicalSnapshotCollector physicalSnapshots) {
-            // Make sure classpath entries have their elements sorted before combining the hashes
-            List<Result> sortedResults = Lists.newArrayList(results)
-            sortedResults.sort { a, b -> a.normalizedPath <=> b.normalizedPath }
-            super.fold(sortedResults, physicalSnapshots)
+            super(NormalizationStrategy.RELATIVE, CompareStrategy.ORDER_INSENSITIVE)
         }
     }
 
     // No-fluff context for regular property snapshotting with relative path sensitivity
     static class DefaultContext extends AbstractContext {
         DefaultContext() {
-            super(NormalizationStrategy.RELATIVE)
+            super(NormalizationStrategy.RELATIVE, CompareStrategy.ORDER_INSENSITIVE)
         }
     }
 
@@ -66,14 +58,14 @@ class SnapshotterTest extends Specification {
     // but when snapshotting we only see FileCollections (even if the property's type if File).
     static class WarList extends AbstractContext {
         WarList() {
-            super(NormalizationStrategy.RELATIVE)
+            super(NormalizationStrategy.RELATIVE, CompareStrategy.ORDER_INSENSITIVE)
         }
     }
 
     // A WAR file
     static class War extends AbstractContext {
         War() {
-            super(NormalizationStrategy.RELATIVE)
+            super(NormalizationStrategy.RELATIVE, CompareStrategy.ORDER_INSENSITIVE)
         }
     }
 
@@ -155,13 +147,13 @@ class SnapshotterTest extends Specification {
             "Snapshot taken: someOtherFile.log - a9cca315f4b8650dccfa3d93284998ef",
             "Snapshot taken: emptydir - $Directoryish.HASH",
         ]
-        hash == "482a3974d523dfaa582f53020835be4b"
+        hash == "8e1c2e889e3e4c0b851883e16b5383ee"
         physicalSnapshots == [
-            "firstFile.txt: 9db5682a4d778ca2cb79580bdb67083f",
-            "secondFile.txt: 82e72efeddfca85ddb625e88af3fe973",
-            "missingFile.txt: $MissingPhysicalFile.HASH",
-            "someOtherFile.log: a9cca315f4b8650dccfa3d93284998ef",
-            "emptydir: $Directoryish.HASH",
+                "emptydir: $Directoryish.HASH",
+                "firstFile.txt: 9db5682a4d778ca2cb79580bdb67083f",
+                "missingFile.txt: $MissingPhysicalFile.HASH",
+                "secondFile.txt: 82e72efeddfca85ddb625e88af3fe973",
+                "someOtherFile.log: a9cca315f4b8650dccfa3d93284998ef",
         ]
     }
 
@@ -334,9 +326,9 @@ class SnapshotterTest extends Specification {
                 "Snapshot taken: web-app.war!README.md - c47c7c7383225ab55ff591cb59c41e6b",
                 "Snapshot taken: web-app.war!WEB-INF/lib!WEB-INF/lib/core.jar!org/gradle/Util.class - 23e8a4b4f7cc1898ef12b4e6e48852bb",
         ]
-        hash == "7676ea472df4bf672f99e185a7b84235"
+        hash == "d2f44e877e9046985a76dc430cbb9fe3"
         physicalSnapshots == [
-            "web-app.war: ed22ff590fc44449fea9562f9e33ae09"
+            "web-app.war: 52e44df24761891f759ffebd613f2f1c"
         ]
     }
 

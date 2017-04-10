@@ -13,13 +13,15 @@ import java.util.Map;
 public abstract class AbstractContext implements Context {
     private final Map<String, Result> results = Maps.newLinkedHashMap();
     private final NormalizationStrategy normalizationStrategy;
+    private final CompareStrategy compareStrategy;
 
     protected AbstractContext() {
-        this(Fileish::getPath);
+        this(Fileish::getPath, CompareStrategy.ORDER_INSENSITIVE);
     }
 
-    protected AbstractContext(NormalizationStrategy normalizationStrategy) {
+    protected AbstractContext(NormalizationStrategy normalizationStrategy, CompareStrategy compareStrategy) {
         this.normalizationStrategy = normalizationStrategy;
+        this.compareStrategy = compareStrategy;
     }
 
     @Override
@@ -63,9 +65,9 @@ public abstract class AbstractContext implements Context {
         return normalizationStrategy.normalize(file);
     }
 
-    protected HashCode fold(Collection<Result> results, PhysicalSnapshotCollector physicalSnapshots) {
+    private HashCode fold(Collection<Result> results, PhysicalSnapshotCollector physicalSnapshots) {
         Hasher hasher = Hashing.md5().newHasher();
-        for (Result result : results) {
+        for (Result result : compareStrategy.sort(results)) {
             hasher.putString(result.getNormalizedPath(), Charsets.UTF_8);
             hasher.putBytes(result.fold(physicalSnapshots).asBytes());
         }
